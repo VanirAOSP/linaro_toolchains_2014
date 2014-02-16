@@ -56,8 +56,8 @@ Introduction
 
 This manual documents how to use the GNU compilers, as well as their
 features and incompatibilities, and how to report bugs.  It corresponds
-to the compilers (crosstool-NG linaro-1.13.1+bzr2646 - Linaro GCC
-2014.02 - Cortex-A9) version 4.8.3.  The internals of the GNU compilers,
+to the compilers (crosstool-NG linaro-1.13.1+bzr2644 - Linaro GCC
+2014.01 - Cortex-A9) version 4.8.3.  The internals of the GNU compilers,
 including how to port them to new targets and some information about how
 to write front ends for new languages, are documented in a separate
 manual.  *Note Introduction: (gccint)Top.
@@ -718,7 +718,7 @@ _Optimization Options_
           -ftree-parallelize-loops=N -ftree-pre -ftree-partial-pre -ftree-pta
           -ftree-reassoc -ftree-sink -ftree-slsr -ftree-sra
           -ftree-switch-conversion -ftree-tail-merge
-          -ftree-ter -ftree-vectorize -ftree-vrp
+          -ftree-ter -ftree-vect-loop-version -ftree-vectorize -ftree-vrp
           -funit-at-a-time -funroll-all-loops -funroll-loops
           -funsafe-loop-optimizations -funsafe-math-optimizations -funswitch-loops
           -fvariable-expansion-in-unroller -fvect-cost-model -fvpt -fweb
@@ -6032,7 +6032,7 @@ find out the exact set of optimizations that are enabled at each level.
      '-Os' disables the following optimization flags:
           -falign-functions  -falign-jumps  -falign-loops
           -falign-labels  -freorder-blocks  -freorder-blocks-and-partition
-          -fprefetch-loop-arrays
+          -fprefetch-loop-arrays  -ftree-vect-loop-version
 
 '-Ofast'
      Disregard strict standards compliance.  '-Ofast' enables all '-O3'
@@ -7129,19 +7129,18 @@ optimizations to be performed is desired.
      Perform basic block vectorization on trees.  This flag is enabled
      by default at '-O3' and when '-ftree-vectorize' is enabled.
 
-'-fvect-cost-model=MODEL'
-     Alter the cost model used for vectorization.  The MODEL argument
-     should be one of 'unlimited', 'dynamic' or 'cheap'.  With the
-     'unlimited' model the vectorized code-path is assumed to be
-     profitable while with the 'dynamic' model a runtime check will
-     guard the vectorized code-path to enable it only for iteration
-     counts that will likely execute faster than when executing the
-     original scalar loop.  The 'cheap' model will disable vectorization
-     of loops where doing so would be cost prohibitive for example due
-     to required runtime checks for data dependence or alignment but
-     otherwise is equal to the 'dynamic' model.  The default cost model
-     depends on other optimization flags and is either 'dynamic' or
-     'cheap'.
+'-ftree-vect-loop-version'
+     Perform loop versioning when doing loop vectorization on trees.
+     When a loop appears to be vectorizable except that data alignment
+     or data dependence cannot be determined at compile time, then
+     vectorized and non-vectorized versions of the loop are generated
+     along with run-time checks for alignment or dependence to control
+     which version is executed.  This option is enabled by default
+     except at level '-Os' where it is disabled.
+
+'-fvect-cost-model'
+     Enable cost model for vectorization.  This option is enabled by
+     default at '-O3'.
 
 '-ftree-vrp'
      Perform Value Range Propagation on trees.  This is similar to the
@@ -8489,14 +8488,12 @@ includes experimental options that may produce broken code.
      'vect-max-version-for-alignment-checks'
           The maximum number of run-time checks that can be performed
           when doing loop versioning for alignment in the vectorizer.
+          See option '-ftree-vect-loop-version' for more information.
 
      'vect-max-version-for-alias-checks'
           The maximum number of run-time checks that can be performed
-          when doing loop versioning for alias in the vectorizer.
-
-     'vect-max-peeling-for-alignment'
-          The maximum number of loop peels to enhance access alignment
-          for vectorizer.  Value -1 means 'no limit'.
+          when doing loop versioning for alias in the vectorizer.  See
+          option '-ftree-vect-loop-version' for more information.
 
      'max-iterations-to-track'
           The maximum number of iterations of a loop the brute-force
@@ -11076,10 +11073,7 @@ architectures:
      'armv2', 'armv2a', 'armv3', 'armv3m', 'armv4', 'armv4t', 'armv5',
      'armv5t', 'armv5e', 'armv5te', 'armv6', 'armv6j', 'armv6t2',
      'armv6z', 'armv6zk', 'armv6-m', 'armv7', 'armv7-a', 'armv7-r',
-     'armv7-m', 'armv8-a', 'armv8-a+crc', 'iwmmxt', 'iwmmxt2', 'ep9312'.
-
-     '-march=armv8-a+crc' enables code generation for the ARMv8-A
-     architecture together with the optional CRC32 extensions.
+     'armv7-m', 'armv8-a', 'iwmmxt', 'iwmmxt2', 'ep9312'.
 
      '-march=native' causes the compiler to auto-detect the architecture
      of the build computer.  At present, this feature is only supported
@@ -29886,7 +29880,6 @@ instructions, but allow the compiler to schedule those calls.
 * Alpha Built-in Functions::
 * ARM iWMMXt Built-in Functions::
 * ARM NEON Intrinsics::
-* ARM ACLE Intrinsics::
 * AVR Built-in Functions::
 * Blackfin Built-in Functions::
 * FR-V Built-in Functions::
@@ -30138,7 +30131,7 @@ when the '-mcpu=iwmmxt' switch is used:
      long long __builtin_arm_wzero ()
 
 
-File: gcc.info,  Node: ARM NEON Intrinsics,  Next: ARM ACLE Intrinsics,  Prev: ARM iWMMXt Built-in Functions,  Up: Target Builtins
+File: gcc.info,  Node: ARM NEON Intrinsics,  Next: AVR Built-in Functions,  Prev: ARM iWMMXt Built-in Functions,  Up: Target Builtins
 
 6.56.3 ARM NEON Intrinsics
 --------------------------
@@ -32218,9 +32211,6 @@ available when the '-mfpu=neon' switch is used:
 6.56.3.36 Vector shift right and insert
 .......................................
 
-   * poly64x1_t vsri_n_p64 (poly64x1_t, poly64x1_t, const int)
-     _Form of expected instruction(s):_ 'vsri.64 D0, D0, #0'
-
    * uint32x2_t vsri_n_u32 (uint32x2_t, uint32x2_t, const int)
      _Form of expected instruction(s):_ 'vsri.32 D0, D0, #0'
 
@@ -32250,9 +32240,6 @@ available when the '-mfpu=neon' switch is used:
 
    * poly8x8_t vsri_n_p8 (poly8x8_t, poly8x8_t, const int)
      _Form of expected instruction(s):_ 'vsri.8 D0, D0, #0'
-
-   * poly64x2_t vsriq_n_p64 (poly64x2_t, poly64x2_t, const int)
-     _Form of expected instruction(s):_ 'vsri.64 Q0, Q0, #0'
 
    * uint32x4_t vsriq_n_u32 (uint32x4_t, uint32x4_t, const int)
      _Form of expected instruction(s):_ 'vsri.32 Q0, Q0, #0'
@@ -32287,9 +32274,6 @@ available when the '-mfpu=neon' switch is used:
 6.56.3.37 Vector shift left and insert
 ......................................
 
-   * poly64x1_t vsli_n_p64 (poly64x1_t, poly64x1_t, const int)
-     _Form of expected instruction(s):_ 'vsli.64 D0, D0, #0'
-
    * uint32x2_t vsli_n_u32 (uint32x2_t, uint32x2_t, const int)
      _Form of expected instruction(s):_ 'vsli.32 D0, D0, #0'
 
@@ -32319,9 +32303,6 @@ available when the '-mfpu=neon' switch is used:
 
    * poly8x8_t vsli_n_p8 (poly8x8_t, poly8x8_t, const int)
      _Form of expected instruction(s):_ 'vsli.8 D0, D0, #0'
-
-   * poly64x2_t vsliq_n_p64 (poly64x2_t, poly64x2_t, const int)
-     _Form of expected instruction(s):_ 'vsli.64 Q0, Q0, #0'
 
    * uint32x4_t vsliq_n_u32 (uint32x4_t, uint32x4_t, const int)
      _Form of expected instruction(s):_ 'vsli.32 Q0, Q0, #0'
@@ -32738,8 +32719,6 @@ available when the '-mfpu=neon' switch is used:
 6.56.3.48 Create vector from literal bit pattern
 ................................................
 
-   * poly64x1_t vcreate_p64 (uint64_t)
-
    * uint32x2_t vcreate_u32 (uint64_t)
 
    * uint16x4_t vcreate_u16 (uint64_t)
@@ -32792,13 +32771,9 @@ available when the '-mfpu=neon' switch is used:
    * poly8x8_t vdup_n_p8 (poly8_t)
      _Form of expected instruction(s):_ 'vdup.8 D0, R0'
 
-   * poly64x1_t vdup_n_p64 (poly64_t)
-
    * uint64x1_t vdup_n_u64 (uint64_t)
 
    * int64x1_t vdup_n_s64 (int64_t)
-
-   * poly64x2_t vdupq_n_p64 (poly64_t)
 
    * uint32x4_t vdupq_n_u32 (uint32_t)
      _Form of expected instruction(s):_ 'vdup.32 Q0, R0'
@@ -32920,8 +32895,6 @@ available when the '-mfpu=neon' switch is used:
    * poly8x8_t vdup_lane_p8 (poly8x8_t, const int)
      _Form of expected instruction(s):_ 'vdup.8 D0, D0[0]'
 
-   * poly64x1_t vdup_lane_p64 (poly64x1_t, const int)
-
    * uint64x1_t vdup_lane_u64 (uint64x1_t, const int)
 
    * int64x1_t vdup_lane_s64 (int64x1_t, const int)
@@ -32953,16 +32926,12 @@ available when the '-mfpu=neon' switch is used:
    * poly8x16_t vdupq_lane_p8 (poly8x8_t, const int)
      _Form of expected instruction(s):_ 'vdup.8 Q0, D0[0]'
 
-   * poly64x2_t vdupq_lane_p64 (poly64x1_t, const int)
-
    * uint64x2_t vdupq_lane_u64 (uint64x1_t, const int)
 
    * int64x2_t vdupq_lane_s64 (int64x1_t, const int)
 
 6.56.3.50 Combining vectors
 ...........................
-
-   * poly64x2_t vcombine_p64 (poly64x1_t, poly64x1_t)
 
    * uint32x4_t vcombine_u32 (uint32x2_t, uint32x2_t)
 
@@ -32988,8 +32957,6 @@ available when the '-mfpu=neon' switch is used:
 
 6.56.3.51 Splitting vectors
 ...........................
-
-   * poly64x1_t vget_high_p64 (poly64x2_t)
 
    * uint32x2_t vget_high_u32 (uint32x4_t)
 
@@ -33039,8 +33006,6 @@ available when the '-mfpu=neon' switch is used:
 
    * poly8x8_t vget_low_p8 (poly8x16_t)
      _Form of expected instruction(s):_ 'vmov D0, D0'
-
-   * poly64x1_t vget_low_p64 (poly64x2_t)
 
    * uint64x1_t vget_low_u64 (uint64x2_t)
 
@@ -33663,9 +33628,6 @@ available when the '-mfpu=neon' switch is used:
 6.56.3.69 Vector extract
 ........................
 
-   * poly64x1_t vext_p64 (poly64x1_t, poly64x1_t, const int)
-     _Form of expected instruction(s):_ 'vext.64 D0, D0, D0, #0'
-
    * uint32x2_t vext_u32 (uint32x2_t, uint32x2_t, const int)
      _Form of expected instruction(s):_ 'vext.32 D0, D0, D0, #0'
 
@@ -33698,9 +33660,6 @@ available when the '-mfpu=neon' switch is used:
 
    * poly8x8_t vext_p8 (poly8x8_t, poly8x8_t, const int)
      _Form of expected instruction(s):_ 'vext.8 D0, D0, D0, #0'
-
-   * poly64x2_t vextq_p64 (poly64x2_t, poly64x2_t, const int)
-     _Form of expected instruction(s):_ 'vext.64 Q0, Q0, Q0, #0'
 
    * uint32x4_t vextq_u32 (uint32x4_t, uint32x4_t, const int)
      _Form of expected instruction(s):_ 'vext.32 Q0, Q0, Q0, #0'
@@ -33849,10 +33808,6 @@ available when the '-mfpu=neon' switch is used:
 6.56.3.71 Bit selection
 .......................
 
-   * poly64x1_t vbsl_p64 (uint64x1_t, poly64x1_t, poly64x1_t)
-     _Form of expected instruction(s):_ 'vbsl D0, D0, D0' _or_ 'vbit D0,
-     D0, D0' _or_ 'vbif D0, D0, D0'
-
    * uint32x2_t vbsl_u32 (uint32x2_t, uint32x2_t, uint32x2_t)
      _Form of expected instruction(s):_ 'vbsl D0, D0, D0' _or_ 'vbit D0,
      D0, D0' _or_ 'vbif D0, D0, D0'
@@ -33896,10 +33851,6 @@ available when the '-mfpu=neon' switch is used:
    * poly8x8_t vbsl_p8 (uint8x8_t, poly8x8_t, poly8x8_t)
      _Form of expected instruction(s):_ 'vbsl D0, D0, D0' _or_ 'vbit D0,
      D0, D0' _or_ 'vbif D0, D0, D0'
-
-   * poly64x2_t vbslq_p64 (uint64x2_t, poly64x2_t, poly64x2_t)
-     _Form of expected instruction(s):_ 'vbsl Q0, Q0, Q0' _or_ 'vbit Q0,
-     Q0, Q0' _or_ 'vbif Q0, Q0, Q0'
 
    * uint32x4_t vbslq_u32 (uint32x4_t, uint32x4_t, uint32x4_t)
      _Form of expected instruction(s):_ 'vbsl Q0, Q0, Q0' _or_ 'vbit Q0,
@@ -34119,9 +34070,6 @@ available when the '-mfpu=neon' switch is used:
 6.56.3.75 Element/structure loads, VLD1 variants
 ................................................
 
-   * poly64x1_t vld1_p64 (const poly64_t *)
-     _Form of expected instruction(s):_ 'vld1.64 {D0}, [R0]'
-
    * uint32x2_t vld1_u32 (const uint32_t *)
      _Form of expected instruction(s):_ 'vld1.32 {D0}, [R0]'
 
@@ -34154,9 +34102,6 @@ available when the '-mfpu=neon' switch is used:
 
    * poly8x8_t vld1_p8 (const poly8_t *)
      _Form of expected instruction(s):_ 'vld1.8 {D0}, [R0]'
-
-   * poly64x2_t vld1q_p64 (const poly64_t *)
-     _Form of expected instruction(s):_ 'vld1.64 {D0, D1}, [R0]'
 
    * uint32x4_t vld1q_u32 (const uint32_t *)
      _Form of expected instruction(s):_ 'vld1.32 {D0, D1}, [R0]'
@@ -34219,9 +34164,6 @@ available when the '-mfpu=neon' switch is used:
    * poly8x8_t vld1_lane_p8 (const poly8_t *, poly8x8_t, const int)
      _Form of expected instruction(s):_ 'vld1.8 {D0[0]}, [R0]'
 
-   * poly64x1_t vld1_lane_p64 (const poly64_t *, poly64x1_t, const int)
-     _Form of expected instruction(s):_ 'vld1.64 {D0}, [R0]'
-
    * uint64x1_t vld1_lane_u64 (const uint64_t *, uint64x1_t, const int)
      _Form of expected instruction(s):_ 'vld1.64 {D0}, [R0]'
 
@@ -34259,10 +34201,6 @@ available when the '-mfpu=neon' switch is used:
    * poly8x16_t vld1q_lane_p8 (const poly8_t *, poly8x16_t, const int)
      _Form of expected instruction(s):_ 'vld1.8 {D0[0]}, [R0]'
 
-   * poly64x2_t vld1q_lane_p64 (const poly64_t *, poly64x2_t, const int)
-
-     _Form of expected instruction(s):_ 'vld1.64 {D0}, [R0]'
-
    * uint64x2_t vld1q_lane_u64 (const uint64_t *, uint64x2_t, const int)
 
      _Form of expected instruction(s):_ 'vld1.64 {D0}, [R0]'
@@ -34297,9 +34235,6 @@ available when the '-mfpu=neon' switch is used:
    * poly8x8_t vld1_dup_p8 (const poly8_t *)
      _Form of expected instruction(s):_ 'vld1.8 {D0[]}, [R0]'
 
-   * poly64x1_t vld1_dup_p64 (const poly64_t *)
-     _Form of expected instruction(s):_ 'vld1.64 {D0}, [R0]'
-
    * uint64x1_t vld1_dup_u64 (const uint64_t *)
      _Form of expected instruction(s):_ 'vld1.64 {D0}, [R0]'
 
@@ -34333,9 +34268,6 @@ available when the '-mfpu=neon' switch is used:
    * poly8x16_t vld1q_dup_p8 (const poly8_t *)
      _Form of expected instruction(s):_ 'vld1.8 {D0[], D1[]}, [R0]'
 
-   * poly64x2_t vld1q_dup_p64 (const poly64_t *)
-     _Form of expected instruction(s):_ 'vld1.64 {D0}, [R0]'
-
    * uint64x2_t vld1q_dup_u64 (const uint64_t *)
      _Form of expected instruction(s):_ 'vld1.64 {D0}, [R0]'
 
@@ -34344,9 +34276,6 @@ available when the '-mfpu=neon' switch is used:
 
 6.56.3.76 Element/structure stores, VST1 variants
 .................................................
-
-   * void vst1_p64 (poly64_t *, poly64x1_t)
-     _Form of expected instruction(s):_ 'vst1.64 {D0}, [R0]'
 
    * void vst1_u32 (uint32_t *, uint32x2_t)
      _Form of expected instruction(s):_ 'vst1.32 {D0}, [R0]'
@@ -34380,9 +34309,6 @@ available when the '-mfpu=neon' switch is used:
 
    * void vst1_p8 (poly8_t *, poly8x8_t)
      _Form of expected instruction(s):_ 'vst1.8 {D0}, [R0]'
-
-   * void vst1q_p64 (poly64_t *, poly64x2_t)
-     _Form of expected instruction(s):_ 'vst1.64 {D0, D1}, [R0]'
 
    * void vst1q_u32 (uint32_t *, uint32x4_t)
      _Form of expected instruction(s):_ 'vst1.32 {D0, D1}, [R0]'
@@ -34444,9 +34370,6 @@ available when the '-mfpu=neon' switch is used:
    * void vst1_lane_p8 (poly8_t *, poly8x8_t, const int)
      _Form of expected instruction(s):_ 'vst1.8 {D0[0]}, [R0]'
 
-   * void vst1_lane_p64 (poly64_t *, poly64x1_t, const int)
-     _Form of expected instruction(s):_ 'vst1.64 {D0}, [R0]'
-
    * void vst1_lane_s64 (int64_t *, int64x1_t, const int)
      _Form of expected instruction(s):_ 'vst1.64 {D0}, [R0]'
 
@@ -34479,9 +34402,6 @@ available when the '-mfpu=neon' switch is used:
 
    * void vst1q_lane_p8 (poly8_t *, poly8x16_t, const int)
      _Form of expected instruction(s):_ 'vst1.8 {D0[0]}, [R0]'
-
-   * void vst1q_lane_p64 (poly64_t *, poly64x2_t, const int)
-     _Form of expected instruction(s):_ 'vst1.64 {D0}, [R0]'
 
    * void vst1q_lane_s64 (int64_t *, int64x2_t, const int)
      _Form of expected instruction(s):_ 'vst1.64 {D0}, [R0]'
@@ -34518,9 +34438,6 @@ available when the '-mfpu=neon' switch is used:
 
    * poly8x8x2_t vld2_p8 (const poly8_t *)
      _Form of expected instruction(s):_ 'vld2.8 {D0, D1}, [R0]'
-
-   * poly64x1x2_t vld2_p64 (const poly64_t *)
-     _Form of expected instruction(s):_ 'vld1.64 {D0, D1}, [R0]'
 
    * uint64x1x2_t vld2_u64 (const uint64_t *)
      _Form of expected instruction(s):_ 'vld1.64 {D0, D1}, [R0]'
@@ -34639,9 +34556,6 @@ available when the '-mfpu=neon' switch is used:
    * poly8x8x2_t vld2_dup_p8 (const poly8_t *)
      _Form of expected instruction(s):_ 'vld2.8 {D0[], D1[]}, [R0]'
 
-   * poly64x1x2_t vld2_dup_p64 (const poly64_t *)
-     _Form of expected instruction(s):_ 'vld1.64 {D0, D1}, [R0]'
-
    * uint64x1x2_t vld2_dup_u64 (const uint64_t *)
      _Form of expected instruction(s):_ 'vld1.64 {D0, D1}, [R0]'
 
@@ -34677,9 +34591,6 @@ available when the '-mfpu=neon' switch is used:
 
    * void vst2_p8 (poly8_t *, poly8x8x2_t)
      _Form of expected instruction(s):_ 'vst2.8 {D0, D1}, [R0]'
-
-   * void vst2_p64 (poly64_t *, poly64x1x2_t)
-     _Form of expected instruction(s):_ 'vst1.64 {D0, D1}, [R0]'
 
    * void vst2_u64 (uint64_t *, uint64x1x2_t)
      _Form of expected instruction(s):_ 'vst1.64 {D0, D1}, [R0]'
@@ -34788,9 +34699,6 @@ available when the '-mfpu=neon' switch is used:
 
    * poly8x8x3_t vld3_p8 (const poly8_t *)
      _Form of expected instruction(s):_ 'vld3.8 {D0, D1, D2}, [R0]'
-
-   * poly64x1x3_t vld3_p64 (const poly64_t *)
-     _Form of expected instruction(s):_ 'vld1.64 {D0, D1, D2}, [R0]'
 
    * uint64x1x3_t vld3_u64 (const uint64_t *)
      _Form of expected instruction(s):_ 'vld1.64 {D0, D1, D2}, [R0]'
@@ -34933,9 +34841,6 @@ available when the '-mfpu=neon' switch is used:
      _Form of expected instruction(s):_ 'vld3.8 {D0[], D1[], D2[]},
      [R0]'
 
-   * poly64x1x3_t vld3_dup_p64 (const poly64_t *)
-     _Form of expected instruction(s):_ 'vld1.64 {D0, D1, D2}, [R0]'
-
    * uint64x1x3_t vld3_dup_u64 (const uint64_t *)
      _Form of expected instruction(s):_ 'vld1.64 {D0, D1, D2}, [R0]'
 
@@ -34971,9 +34876,6 @@ available when the '-mfpu=neon' switch is used:
 
    * void vst3_p8 (poly8_t *, poly8x8x3_t)
      _Form of expected instruction(s):_ 'vst3.8 {D0, D1, D2, D3}, [R0]'
-
-   * void vst3_p64 (poly64_t *, poly64x1x3_t)
-     _Form of expected instruction(s):_ 'vst1.64 {D0, D1, D2, D3}, [R0]'
 
    * void vst3_u64 (uint64_t *, uint64x1x3_t)
      _Form of expected instruction(s):_ 'vst1.64 {D0, D1, D2, D3}, [R0]'
@@ -35097,9 +34999,6 @@ available when the '-mfpu=neon' switch is used:
 
    * poly8x8x4_t vld4_p8 (const poly8_t *)
      _Form of expected instruction(s):_ 'vld4.8 {D0, D1, D2, D3}, [R0]'
-
-   * poly64x1x4_t vld4_p64 (const poly64_t *)
-     _Form of expected instruction(s):_ 'vld1.64 {D0, D1, D2, D3}, [R0]'
 
    * uint64x1x4_t vld4_u64 (const uint64_t *)
      _Form of expected instruction(s):_ 'vld1.64 {D0, D1, D2, D3}, [R0]'
@@ -35242,9 +35141,6 @@ available when the '-mfpu=neon' switch is used:
      _Form of expected instruction(s):_ 'vld4.8 {D0[], D1[], D2[],
      D3[]}, [R0]'
 
-   * poly64x1x4_t vld4_dup_p64 (const poly64_t *)
-     _Form of expected instruction(s):_ 'vld1.64 {D0, D1, D2, D3}, [R0]'
-
    * uint64x1x4_t vld4_dup_u64 (const uint64_t *)
      _Form of expected instruction(s):_ 'vld1.64 {D0, D1, D2, D3}, [R0]'
 
@@ -35280,9 +35176,6 @@ available when the '-mfpu=neon' switch is used:
 
    * void vst4_p8 (poly8_t *, poly8x8x4_t)
      _Form of expected instruction(s):_ 'vst4.8 {D0, D1, D2, D3}, [R0]'
-
-   * void vst4_p64 (poly64_t *, poly64x1x4_t)
-     _Form of expected instruction(s):_ 'vst1.64 {D0, D1, D2, D3}, [R0]'
 
    * void vst4_u64 (uint64_t *, uint64x1x4_t)
      _Form of expected instruction(s):_ 'vst1.64 {D0, D1, D2, D3}, [R0]'
@@ -35625,670 +35518,450 @@ available when the '-mfpu=neon' switch is used:
 6.56.3.88 Reinterpret casts
 ...........................
 
-   * poly8x8_t vreinterpret_p8_p16 (poly16x4_t)
-
-   * poly8x8_t vreinterpret_p8_f32 (float32x2_t)
-
-   * poly8x8_t vreinterpret_p8_p64 (poly64x1_t)
-
-   * poly8x8_t vreinterpret_p8_s64 (int64x1_t)
-
-   * poly8x8_t vreinterpret_p8_u64 (uint64x1_t)
-
-   * poly8x8_t vreinterpret_p8_s8 (int8x8_t)
-
-   * poly8x8_t vreinterpret_p8_s16 (int16x4_t)
-
-   * poly8x8_t vreinterpret_p8_s32 (int32x2_t)
-
-   * poly8x8_t vreinterpret_p8_u8 (uint8x8_t)
+   * poly8x8_t vreinterpret_p8_u32 (uint32x2_t)
 
    * poly8x8_t vreinterpret_p8_u16 (uint16x4_t)
 
-   * poly8x8_t vreinterpret_p8_u32 (uint32x2_t)
+   * poly8x8_t vreinterpret_p8_u8 (uint8x8_t)
 
-   * poly16x4_t vreinterpret_p16_p8 (poly8x8_t)
+   * poly8x8_t vreinterpret_p8_s32 (int32x2_t)
 
-   * poly16x4_t vreinterpret_p16_f32 (float32x2_t)
+   * poly8x8_t vreinterpret_p8_s16 (int16x4_t)
 
-   * poly16x4_t vreinterpret_p16_p64 (poly64x1_t)
+   * poly8x8_t vreinterpret_p8_s8 (int8x8_t)
 
-   * poly16x4_t vreinterpret_p16_s64 (int64x1_t)
+   * poly8x8_t vreinterpret_p8_u64 (uint64x1_t)
 
-   * poly16x4_t vreinterpret_p16_u64 (uint64x1_t)
+   * poly8x8_t vreinterpret_p8_s64 (int64x1_t)
 
-   * poly16x4_t vreinterpret_p16_s8 (int8x8_t)
+   * poly8x8_t vreinterpret_p8_f32 (float32x2_t)
 
-   * poly16x4_t vreinterpret_p16_s16 (int16x4_t)
-
-   * poly16x4_t vreinterpret_p16_s32 (int32x2_t)
-
-   * poly16x4_t vreinterpret_p16_u8 (uint8x8_t)
-
-   * poly16x4_t vreinterpret_p16_u16 (uint16x4_t)
-
-   * poly16x4_t vreinterpret_p16_u32 (uint32x2_t)
-
-   * float32x2_t vreinterpret_f32_p8 (poly8x8_t)
-
-   * float32x2_t vreinterpret_f32_p16 (poly16x4_t)
-
-   * float32x2_t vreinterpret_f32_p64 (poly64x1_t)
-
-   * float32x2_t vreinterpret_f32_s64 (int64x1_t)
-
-   * float32x2_t vreinterpret_f32_u64 (uint64x1_t)
-
-   * float32x2_t vreinterpret_f32_s8 (int8x8_t)
-
-   * float32x2_t vreinterpret_f32_s16 (int16x4_t)
-
-   * float32x2_t vreinterpret_f32_s32 (int32x2_t)
-
-   * float32x2_t vreinterpret_f32_u8 (uint8x8_t)
-
-   * float32x2_t vreinterpret_f32_u16 (uint16x4_t)
-
-   * float32x2_t vreinterpret_f32_u32 (uint32x2_t)
-
-   * poly64x1_t vreinterpret_p64_p8 (poly8x8_t)
-
-   * poly64x1_t vreinterpret_p64_p16 (poly16x4_t)
-
-   * poly64x1_t vreinterpret_p64_f32 (float32x2_t)
-
-   * poly64x1_t vreinterpret_p64_s64 (int64x1_t)
-
-   * poly64x1_t vreinterpret_p64_u64 (uint64x1_t)
-
-   * poly64x1_t vreinterpret_p64_s8 (int8x8_t)
-
-   * poly64x1_t vreinterpret_p64_s16 (int16x4_t)
-
-   * poly64x1_t vreinterpret_p64_s32 (int32x2_t)
-
-   * poly64x1_t vreinterpret_p64_u8 (uint8x8_t)
-
-   * poly64x1_t vreinterpret_p64_u16 (uint16x4_t)
-
-   * poly64x1_t vreinterpret_p64_u32 (uint32x2_t)
-
-   * int64x1_t vreinterpret_s64_p8 (poly8x8_t)
-
-   * int64x1_t vreinterpret_s64_p16 (poly16x4_t)
-
-   * int64x1_t vreinterpret_s64_f32 (float32x2_t)
-
-   * int64x1_t vreinterpret_s64_p64 (poly64x1_t)
-
-   * int64x1_t vreinterpret_s64_u64 (uint64x1_t)
-
-   * int64x1_t vreinterpret_s64_s8 (int8x8_t)
-
-   * int64x1_t vreinterpret_s64_s16 (int16x4_t)
-
-   * int64x1_t vreinterpret_s64_s32 (int32x2_t)
-
-   * int64x1_t vreinterpret_s64_u8 (uint8x8_t)
-
-   * int64x1_t vreinterpret_s64_u16 (uint16x4_t)
-
-   * int64x1_t vreinterpret_s64_u32 (uint32x2_t)
-
-   * uint64x1_t vreinterpret_u64_p8 (poly8x8_t)
-
-   * uint64x1_t vreinterpret_u64_p16 (poly16x4_t)
-
-   * uint64x1_t vreinterpret_u64_f32 (float32x2_t)
-
-   * uint64x1_t vreinterpret_u64_p64 (poly64x1_t)
-
-   * uint64x1_t vreinterpret_u64_s64 (int64x1_t)
-
-   * uint64x1_t vreinterpret_u64_s8 (int8x8_t)
-
-   * uint64x1_t vreinterpret_u64_s16 (int16x4_t)
-
-   * uint64x1_t vreinterpret_u64_s32 (int32x2_t)
-
-   * uint64x1_t vreinterpret_u64_u8 (uint8x8_t)
-
-   * uint64x1_t vreinterpret_u64_u16 (uint16x4_t)
-
-   * uint64x1_t vreinterpret_u64_u32 (uint32x2_t)
-
-   * int8x8_t vreinterpret_s8_p8 (poly8x8_t)
-
-   * int8x8_t vreinterpret_s8_p16 (poly16x4_t)
-
-   * int8x8_t vreinterpret_s8_f32 (float32x2_t)
-
-   * int8x8_t vreinterpret_s8_p64 (poly64x1_t)
-
-   * int8x8_t vreinterpret_s8_s64 (int64x1_t)
-
-   * int8x8_t vreinterpret_s8_u64 (uint64x1_t)
-
-   * int8x8_t vreinterpret_s8_s16 (int16x4_t)
-
-   * int8x8_t vreinterpret_s8_s32 (int32x2_t)
-
-   * int8x8_t vreinterpret_s8_u8 (uint8x8_t)
-
-   * int8x8_t vreinterpret_s8_u16 (uint16x4_t)
-
-   * int8x8_t vreinterpret_s8_u32 (uint32x2_t)
-
-   * int16x4_t vreinterpret_s16_p8 (poly8x8_t)
-
-   * int16x4_t vreinterpret_s16_p16 (poly16x4_t)
-
-   * int16x4_t vreinterpret_s16_f32 (float32x2_t)
-
-   * int16x4_t vreinterpret_s16_p64 (poly64x1_t)
-
-   * int16x4_t vreinterpret_s16_s64 (int64x1_t)
-
-   * int16x4_t vreinterpret_s16_u64 (uint64x1_t)
-
-   * int16x4_t vreinterpret_s16_s8 (int8x8_t)
-
-   * int16x4_t vreinterpret_s16_s32 (int32x2_t)
-
-   * int16x4_t vreinterpret_s16_u8 (uint8x8_t)
-
-   * int16x4_t vreinterpret_s16_u16 (uint16x4_t)
-
-   * int16x4_t vreinterpret_s16_u32 (uint32x2_t)
-
-   * int32x2_t vreinterpret_s32_p8 (poly8x8_t)
-
-   * int32x2_t vreinterpret_s32_p16 (poly16x4_t)
-
-   * int32x2_t vreinterpret_s32_f32 (float32x2_t)
-
-   * int32x2_t vreinterpret_s32_p64 (poly64x1_t)
-
-   * int32x2_t vreinterpret_s32_s64 (int64x1_t)
-
-   * int32x2_t vreinterpret_s32_u64 (uint64x1_t)
-
-   * int32x2_t vreinterpret_s32_s8 (int8x8_t)
-
-   * int32x2_t vreinterpret_s32_s16 (int16x4_t)
-
-   * int32x2_t vreinterpret_s32_u8 (uint8x8_t)
-
-   * int32x2_t vreinterpret_s32_u16 (uint16x4_t)
-
-   * int32x2_t vreinterpret_s32_u32 (uint32x2_t)
-
-   * uint8x8_t vreinterpret_u8_p8 (poly8x8_t)
-
-   * uint8x8_t vreinterpret_u8_p16 (poly16x4_t)
-
-   * uint8x8_t vreinterpret_u8_f32 (float32x2_t)
-
-   * uint8x8_t vreinterpret_u8_p64 (poly64x1_t)
-
-   * uint8x8_t vreinterpret_u8_s64 (int64x1_t)
-
-   * uint8x8_t vreinterpret_u8_u64 (uint64x1_t)
-
-   * uint8x8_t vreinterpret_u8_s8 (int8x8_t)
-
-   * uint8x8_t vreinterpret_u8_s16 (int16x4_t)
-
-   * uint8x8_t vreinterpret_u8_s32 (int32x2_t)
-
-   * uint8x8_t vreinterpret_u8_u16 (uint16x4_t)
-
-   * uint8x8_t vreinterpret_u8_u32 (uint32x2_t)
-
-   * uint16x4_t vreinterpret_u16_p8 (poly8x8_t)
-
-   * uint16x4_t vreinterpret_u16_p16 (poly16x4_t)
-
-   * uint16x4_t vreinterpret_u16_f32 (float32x2_t)
-
-   * uint16x4_t vreinterpret_u16_p64 (poly64x1_t)
-
-   * uint16x4_t vreinterpret_u16_s64 (int64x1_t)
-
-   * uint16x4_t vreinterpret_u16_u64 (uint64x1_t)
-
-   * uint16x4_t vreinterpret_u16_s8 (int8x8_t)
-
-   * uint16x4_t vreinterpret_u16_s16 (int16x4_t)
-
-   * uint16x4_t vreinterpret_u16_s32 (int32x2_t)
-
-   * uint16x4_t vreinterpret_u16_u8 (uint8x8_t)
-
-   * uint16x4_t vreinterpret_u16_u32 (uint32x2_t)
-
-   * uint32x2_t vreinterpret_u32_p8 (poly8x8_t)
-
-   * uint32x2_t vreinterpret_u32_p16 (poly16x4_t)
-
-   * uint32x2_t vreinterpret_u32_f32 (float32x2_t)
-
-   * uint32x2_t vreinterpret_u32_p64 (poly64x1_t)
-
-   * uint32x2_t vreinterpret_u32_s64 (int64x1_t)
-
-   * uint32x2_t vreinterpret_u32_u64 (uint64x1_t)
-
-   * uint32x2_t vreinterpret_u32_s8 (int8x8_t)
-
-   * uint32x2_t vreinterpret_u32_s16 (int16x4_t)
-
-   * uint32x2_t vreinterpret_u32_s32 (int32x2_t)
-
-   * uint32x2_t vreinterpret_u32_u8 (uint8x8_t)
-
-   * uint32x2_t vreinterpret_u32_u16 (uint16x4_t)
-
-   * poly8x16_t vreinterpretq_p8_p16 (poly16x8_t)
-
-   * poly8x16_t vreinterpretq_p8_f32 (float32x4_t)
-
-   * poly8x16_t vreinterpretq_p8_p64 (poly64x2_t)
-
-   * poly8x16_t vreinterpretq_p8_p128 (poly128_t)
-
-   * poly8x16_t vreinterpretq_p8_s64 (int64x2_t)
-
-   * poly8x16_t vreinterpretq_p8_u64 (uint64x2_t)
-
-   * poly8x16_t vreinterpretq_p8_s8 (int8x16_t)
-
-   * poly8x16_t vreinterpretq_p8_s16 (int16x8_t)
-
-   * poly8x16_t vreinterpretq_p8_s32 (int32x4_t)
-
-   * poly8x16_t vreinterpretq_p8_u8 (uint8x16_t)
-
-   * poly8x16_t vreinterpretq_p8_u16 (uint16x8_t)
+   * poly8x8_t vreinterpret_p8_p16 (poly16x4_t)
 
    * poly8x16_t vreinterpretq_p8_u32 (uint32x4_t)
 
-   * poly16x8_t vreinterpretq_p16_p8 (poly8x16_t)
+   * poly8x16_t vreinterpretq_p8_u16 (uint16x8_t)
 
-   * poly16x8_t vreinterpretq_p16_f32 (float32x4_t)
+   * poly8x16_t vreinterpretq_p8_u8 (uint8x16_t)
 
-   * poly16x8_t vreinterpretq_p16_p64 (poly64x2_t)
+   * poly8x16_t vreinterpretq_p8_s32 (int32x4_t)
 
-   * poly16x8_t vreinterpretq_p16_p128 (poly128_t)
+   * poly8x16_t vreinterpretq_p8_s16 (int16x8_t)
 
-   * poly16x8_t vreinterpretq_p16_s64 (int64x2_t)
+   * poly8x16_t vreinterpretq_p8_s8 (int8x16_t)
 
-   * poly16x8_t vreinterpretq_p16_u64 (uint64x2_t)
+   * poly8x16_t vreinterpretq_p8_u64 (uint64x2_t)
 
-   * poly16x8_t vreinterpretq_p16_s8 (int8x16_t)
+   * poly8x16_t vreinterpretq_p8_s64 (int64x2_t)
 
-   * poly16x8_t vreinterpretq_p16_s16 (int16x8_t)
+   * poly8x16_t vreinterpretq_p8_f32 (float32x4_t)
 
-   * poly16x8_t vreinterpretq_p16_s32 (int32x4_t)
+   * poly8x16_t vreinterpretq_p8_p16 (poly16x8_t)
 
-   * poly16x8_t vreinterpretq_p16_u8 (uint8x16_t)
+   * poly16x4_t vreinterpret_p16_u32 (uint32x2_t)
 
-   * poly16x8_t vreinterpretq_p16_u16 (uint16x8_t)
+   * poly16x4_t vreinterpret_p16_u16 (uint16x4_t)
+
+   * poly16x4_t vreinterpret_p16_u8 (uint8x8_t)
+
+   * poly16x4_t vreinterpret_p16_s32 (int32x2_t)
+
+   * poly16x4_t vreinterpret_p16_s16 (int16x4_t)
+
+   * poly16x4_t vreinterpret_p16_s8 (int8x8_t)
+
+   * poly16x4_t vreinterpret_p16_u64 (uint64x1_t)
+
+   * poly16x4_t vreinterpret_p16_s64 (int64x1_t)
+
+   * poly16x4_t vreinterpret_p16_f32 (float32x2_t)
+
+   * poly16x4_t vreinterpret_p16_p8 (poly8x8_t)
 
    * poly16x8_t vreinterpretq_p16_u32 (uint32x4_t)
 
-   * float32x4_t vreinterpretq_f32_p8 (poly8x16_t)
+   * poly16x8_t vreinterpretq_p16_u16 (uint16x8_t)
 
-   * float32x4_t vreinterpretq_f32_p16 (poly16x8_t)
+   * poly16x8_t vreinterpretq_p16_u8 (uint8x16_t)
 
-   * float32x4_t vreinterpretq_f32_p64 (poly64x2_t)
+   * poly16x8_t vreinterpretq_p16_s32 (int32x4_t)
 
-   * float32x4_t vreinterpretq_f32_p128 (poly128_t)
+   * poly16x8_t vreinterpretq_p16_s16 (int16x8_t)
 
-   * float32x4_t vreinterpretq_f32_s64 (int64x2_t)
+   * poly16x8_t vreinterpretq_p16_s8 (int8x16_t)
 
-   * float32x4_t vreinterpretq_f32_u64 (uint64x2_t)
+   * poly16x8_t vreinterpretq_p16_u64 (uint64x2_t)
 
-   * float32x4_t vreinterpretq_f32_s8 (int8x16_t)
+   * poly16x8_t vreinterpretq_p16_s64 (int64x2_t)
 
-   * float32x4_t vreinterpretq_f32_s16 (int16x8_t)
+   * poly16x8_t vreinterpretq_p16_f32 (float32x4_t)
 
-   * float32x4_t vreinterpretq_f32_s32 (int32x4_t)
+   * poly16x8_t vreinterpretq_p16_p8 (poly8x16_t)
 
-   * float32x4_t vreinterpretq_f32_u8 (uint8x16_t)
+   * float32x2_t vreinterpret_f32_u32 (uint32x2_t)
 
-   * float32x4_t vreinterpretq_f32_u16 (uint16x8_t)
+   * float32x2_t vreinterpret_f32_u16 (uint16x4_t)
+
+   * float32x2_t vreinterpret_f32_u8 (uint8x8_t)
+
+   * float32x2_t vreinterpret_f32_s32 (int32x2_t)
+
+   * float32x2_t vreinterpret_f32_s16 (int16x4_t)
+
+   * float32x2_t vreinterpret_f32_s8 (int8x8_t)
+
+   * float32x2_t vreinterpret_f32_u64 (uint64x1_t)
+
+   * float32x2_t vreinterpret_f32_s64 (int64x1_t)
+
+   * float32x2_t vreinterpret_f32_p16 (poly16x4_t)
+
+   * float32x2_t vreinterpret_f32_p8 (poly8x8_t)
 
    * float32x4_t vreinterpretq_f32_u32 (uint32x4_t)
 
-   * poly64x2_t vreinterpretq_p64_p8 (poly8x16_t)
+   * float32x4_t vreinterpretq_f32_u16 (uint16x8_t)
 
-   * poly64x2_t vreinterpretq_p64_p16 (poly16x8_t)
+   * float32x4_t vreinterpretq_f32_u8 (uint8x16_t)
 
-   * poly64x2_t vreinterpretq_p64_f32 (float32x4_t)
+   * float32x4_t vreinterpretq_f32_s32 (int32x4_t)
 
-   * poly64x2_t vreinterpretq_p64_p128 (poly128_t)
+   * float32x4_t vreinterpretq_f32_s16 (int16x8_t)
 
-   * poly64x2_t vreinterpretq_p64_s64 (int64x2_t)
+   * float32x4_t vreinterpretq_f32_s8 (int8x16_t)
 
-   * poly64x2_t vreinterpretq_p64_u64 (uint64x2_t)
+   * float32x4_t vreinterpretq_f32_u64 (uint64x2_t)
 
-   * poly64x2_t vreinterpretq_p64_s8 (int8x16_t)
+   * float32x4_t vreinterpretq_f32_s64 (int64x2_t)
 
-   * poly64x2_t vreinterpretq_p64_s16 (int16x8_t)
+   * float32x4_t vreinterpretq_f32_p16 (poly16x8_t)
 
-   * poly64x2_t vreinterpretq_p64_s32 (int32x4_t)
+   * float32x4_t vreinterpretq_f32_p8 (poly8x16_t)
 
-   * poly64x2_t vreinterpretq_p64_u8 (uint8x16_t)
+   * int64x1_t vreinterpret_s64_u32 (uint32x2_t)
 
-   * poly64x2_t vreinterpretq_p64_u16 (uint16x8_t)
+   * int64x1_t vreinterpret_s64_u16 (uint16x4_t)
 
-   * poly64x2_t vreinterpretq_p64_u32 (uint32x4_t)
+   * int64x1_t vreinterpret_s64_u8 (uint8x8_t)
 
-   * poly128_t vreinterpretq_p128_p8 (poly8x16_t)
+   * int64x1_t vreinterpret_s64_s32 (int32x2_t)
 
-   * poly128_t vreinterpretq_p128_p16 (poly16x8_t)
+   * int64x1_t vreinterpret_s64_s16 (int16x4_t)
 
-   * poly128_t vreinterpretq_p128_f32 (float32x4_t)
+   * int64x1_t vreinterpret_s64_s8 (int8x8_t)
 
-   * poly128_t vreinterpretq_p128_p64 (poly64x2_t)
+   * int64x1_t vreinterpret_s64_u64 (uint64x1_t)
 
-   * poly128_t vreinterpretq_p128_s64 (int64x2_t)
+   * int64x1_t vreinterpret_s64_f32 (float32x2_t)
 
-   * poly128_t vreinterpretq_p128_u64 (uint64x2_t)
+   * int64x1_t vreinterpret_s64_p16 (poly16x4_t)
 
-   * poly128_t vreinterpretq_p128_s8 (int8x16_t)
-
-   * poly128_t vreinterpretq_p128_s16 (int16x8_t)
-
-   * poly128_t vreinterpretq_p128_s32 (int32x4_t)
-
-   * poly128_t vreinterpretq_p128_u8 (uint8x16_t)
-
-   * poly128_t vreinterpretq_p128_u16 (uint16x8_t)
-
-   * poly128_t vreinterpretq_p128_u32 (uint32x4_t)
-
-   * int64x2_t vreinterpretq_s64_p8 (poly8x16_t)
-
-   * int64x2_t vreinterpretq_s64_p16 (poly16x8_t)
-
-   * int64x2_t vreinterpretq_s64_f32 (float32x4_t)
-
-   * int64x2_t vreinterpretq_s64_p64 (poly64x2_t)
-
-   * int64x2_t vreinterpretq_s64_p128 (poly128_t)
-
-   * int64x2_t vreinterpretq_s64_u64 (uint64x2_t)
-
-   * int64x2_t vreinterpretq_s64_s8 (int8x16_t)
-
-   * int64x2_t vreinterpretq_s64_s16 (int16x8_t)
-
-   * int64x2_t vreinterpretq_s64_s32 (int32x4_t)
-
-   * int64x2_t vreinterpretq_s64_u8 (uint8x16_t)
-
-   * int64x2_t vreinterpretq_s64_u16 (uint16x8_t)
+   * int64x1_t vreinterpret_s64_p8 (poly8x8_t)
 
    * int64x2_t vreinterpretq_s64_u32 (uint32x4_t)
 
-   * uint64x2_t vreinterpretq_u64_p8 (poly8x16_t)
+   * int64x2_t vreinterpretq_s64_u16 (uint16x8_t)
 
-   * uint64x2_t vreinterpretq_u64_p16 (poly16x8_t)
+   * int64x2_t vreinterpretq_s64_u8 (uint8x16_t)
 
-   * uint64x2_t vreinterpretq_u64_f32 (float32x4_t)
+   * int64x2_t vreinterpretq_s64_s32 (int32x4_t)
 
-   * uint64x2_t vreinterpretq_u64_p64 (poly64x2_t)
+   * int64x2_t vreinterpretq_s64_s16 (int16x8_t)
 
-   * uint64x2_t vreinterpretq_u64_p128 (poly128_t)
+   * int64x2_t vreinterpretq_s64_s8 (int8x16_t)
 
-   * uint64x2_t vreinterpretq_u64_s64 (int64x2_t)
+   * int64x2_t vreinterpretq_s64_u64 (uint64x2_t)
 
-   * uint64x2_t vreinterpretq_u64_s8 (int8x16_t)
+   * int64x2_t vreinterpretq_s64_f32 (float32x4_t)
 
-   * uint64x2_t vreinterpretq_u64_s16 (int16x8_t)
+   * int64x2_t vreinterpretq_s64_p16 (poly16x8_t)
 
-   * uint64x2_t vreinterpretq_u64_s32 (int32x4_t)
+   * int64x2_t vreinterpretq_s64_p8 (poly8x16_t)
 
-   * uint64x2_t vreinterpretq_u64_u8 (uint8x16_t)
+   * uint64x1_t vreinterpret_u64_u32 (uint32x2_t)
 
-   * uint64x2_t vreinterpretq_u64_u16 (uint16x8_t)
+   * uint64x1_t vreinterpret_u64_u16 (uint16x4_t)
+
+   * uint64x1_t vreinterpret_u64_u8 (uint8x8_t)
+
+   * uint64x1_t vreinterpret_u64_s32 (int32x2_t)
+
+   * uint64x1_t vreinterpret_u64_s16 (int16x4_t)
+
+   * uint64x1_t vreinterpret_u64_s8 (int8x8_t)
+
+   * uint64x1_t vreinterpret_u64_s64 (int64x1_t)
+
+   * uint64x1_t vreinterpret_u64_f32 (float32x2_t)
+
+   * uint64x1_t vreinterpret_u64_p16 (poly16x4_t)
+
+   * uint64x1_t vreinterpret_u64_p8 (poly8x8_t)
 
    * uint64x2_t vreinterpretq_u64_u32 (uint32x4_t)
 
-   * int8x16_t vreinterpretq_s8_p8 (poly8x16_t)
+   * uint64x2_t vreinterpretq_u64_u16 (uint16x8_t)
 
-   * int8x16_t vreinterpretq_s8_p16 (poly16x8_t)
+   * uint64x2_t vreinterpretq_u64_u8 (uint8x16_t)
 
-   * int8x16_t vreinterpretq_s8_f32 (float32x4_t)
+   * uint64x2_t vreinterpretq_u64_s32 (int32x4_t)
 
-   * int8x16_t vreinterpretq_s8_p64 (poly64x2_t)
+   * uint64x2_t vreinterpretq_u64_s16 (int16x8_t)
 
-   * int8x16_t vreinterpretq_s8_p128 (poly128_t)
+   * uint64x2_t vreinterpretq_u64_s8 (int8x16_t)
 
-   * int8x16_t vreinterpretq_s8_s64 (int64x2_t)
+   * uint64x2_t vreinterpretq_u64_s64 (int64x2_t)
 
-   * int8x16_t vreinterpretq_s8_u64 (uint64x2_t)
+   * uint64x2_t vreinterpretq_u64_f32 (float32x4_t)
 
-   * int8x16_t vreinterpretq_s8_s16 (int16x8_t)
+   * uint64x2_t vreinterpretq_u64_p16 (poly16x8_t)
 
-   * int8x16_t vreinterpretq_s8_s32 (int32x4_t)
+   * uint64x2_t vreinterpretq_u64_p8 (poly8x16_t)
 
-   * int8x16_t vreinterpretq_s8_u8 (uint8x16_t)
+   * int8x8_t vreinterpret_s8_u32 (uint32x2_t)
 
-   * int8x16_t vreinterpretq_s8_u16 (uint16x8_t)
+   * int8x8_t vreinterpret_s8_u16 (uint16x4_t)
+
+   * int8x8_t vreinterpret_s8_u8 (uint8x8_t)
+
+   * int8x8_t vreinterpret_s8_s32 (int32x2_t)
+
+   * int8x8_t vreinterpret_s8_s16 (int16x4_t)
+
+   * int8x8_t vreinterpret_s8_u64 (uint64x1_t)
+
+   * int8x8_t vreinterpret_s8_s64 (int64x1_t)
+
+   * int8x8_t vreinterpret_s8_f32 (float32x2_t)
+
+   * int8x8_t vreinterpret_s8_p16 (poly16x4_t)
+
+   * int8x8_t vreinterpret_s8_p8 (poly8x8_t)
 
    * int8x16_t vreinterpretq_s8_u32 (uint32x4_t)
 
-   * int16x8_t vreinterpretq_s16_p8 (poly8x16_t)
+   * int8x16_t vreinterpretq_s8_u16 (uint16x8_t)
 
-   * int16x8_t vreinterpretq_s16_p16 (poly16x8_t)
+   * int8x16_t vreinterpretq_s8_u8 (uint8x16_t)
 
-   * int16x8_t vreinterpretq_s16_f32 (float32x4_t)
+   * int8x16_t vreinterpretq_s8_s32 (int32x4_t)
 
-   * int16x8_t vreinterpretq_s16_p64 (poly64x2_t)
+   * int8x16_t vreinterpretq_s8_s16 (int16x8_t)
 
-   * int16x8_t vreinterpretq_s16_p128 (poly128_t)
+   * int8x16_t vreinterpretq_s8_u64 (uint64x2_t)
 
-   * int16x8_t vreinterpretq_s16_s64 (int64x2_t)
+   * int8x16_t vreinterpretq_s8_s64 (int64x2_t)
 
-   * int16x8_t vreinterpretq_s16_u64 (uint64x2_t)
+   * int8x16_t vreinterpretq_s8_f32 (float32x4_t)
 
-   * int16x8_t vreinterpretq_s16_s8 (int8x16_t)
+   * int8x16_t vreinterpretq_s8_p16 (poly16x8_t)
 
-   * int16x8_t vreinterpretq_s16_s32 (int32x4_t)
+   * int8x16_t vreinterpretq_s8_p8 (poly8x16_t)
 
-   * int16x8_t vreinterpretq_s16_u8 (uint8x16_t)
+   * int16x4_t vreinterpret_s16_u32 (uint32x2_t)
 
-   * int16x8_t vreinterpretq_s16_u16 (uint16x8_t)
+   * int16x4_t vreinterpret_s16_u16 (uint16x4_t)
+
+   * int16x4_t vreinterpret_s16_u8 (uint8x8_t)
+
+   * int16x4_t vreinterpret_s16_s32 (int32x2_t)
+
+   * int16x4_t vreinterpret_s16_s8 (int8x8_t)
+
+   * int16x4_t vreinterpret_s16_u64 (uint64x1_t)
+
+   * int16x4_t vreinterpret_s16_s64 (int64x1_t)
+
+   * int16x4_t vreinterpret_s16_f32 (float32x2_t)
+
+   * int16x4_t vreinterpret_s16_p16 (poly16x4_t)
+
+   * int16x4_t vreinterpret_s16_p8 (poly8x8_t)
 
    * int16x8_t vreinterpretq_s16_u32 (uint32x4_t)
 
-   * int32x4_t vreinterpretq_s32_p8 (poly8x16_t)
+   * int16x8_t vreinterpretq_s16_u16 (uint16x8_t)
 
-   * int32x4_t vreinterpretq_s32_p16 (poly16x8_t)
+   * int16x8_t vreinterpretq_s16_u8 (uint8x16_t)
 
-   * int32x4_t vreinterpretq_s32_f32 (float32x4_t)
+   * int16x8_t vreinterpretq_s16_s32 (int32x4_t)
 
-   * int32x4_t vreinterpretq_s32_p64 (poly64x2_t)
+   * int16x8_t vreinterpretq_s16_s8 (int8x16_t)
 
-   * int32x4_t vreinterpretq_s32_p128 (poly128_t)
+   * int16x8_t vreinterpretq_s16_u64 (uint64x2_t)
 
-   * int32x4_t vreinterpretq_s32_s64 (int64x2_t)
+   * int16x8_t vreinterpretq_s16_s64 (int64x2_t)
 
-   * int32x4_t vreinterpretq_s32_u64 (uint64x2_t)
+   * int16x8_t vreinterpretq_s16_f32 (float32x4_t)
 
-   * int32x4_t vreinterpretq_s32_s8 (int8x16_t)
+   * int16x8_t vreinterpretq_s16_p16 (poly16x8_t)
 
-   * int32x4_t vreinterpretq_s32_s16 (int16x8_t)
+   * int16x8_t vreinterpretq_s16_p8 (poly8x16_t)
 
-   * int32x4_t vreinterpretq_s32_u8 (uint8x16_t)
+   * int32x2_t vreinterpret_s32_u32 (uint32x2_t)
 
-   * int32x4_t vreinterpretq_s32_u16 (uint16x8_t)
+   * int32x2_t vreinterpret_s32_u16 (uint16x4_t)
+
+   * int32x2_t vreinterpret_s32_u8 (uint8x8_t)
+
+   * int32x2_t vreinterpret_s32_s16 (int16x4_t)
+
+   * int32x2_t vreinterpret_s32_s8 (int8x8_t)
+
+   * int32x2_t vreinterpret_s32_u64 (uint64x1_t)
+
+   * int32x2_t vreinterpret_s32_s64 (int64x1_t)
+
+   * int32x2_t vreinterpret_s32_f32 (float32x2_t)
+
+   * int32x2_t vreinterpret_s32_p16 (poly16x4_t)
+
+   * int32x2_t vreinterpret_s32_p8 (poly8x8_t)
 
    * int32x4_t vreinterpretq_s32_u32 (uint32x4_t)
 
-   * uint8x16_t vreinterpretq_u8_p8 (poly8x16_t)
+   * int32x4_t vreinterpretq_s32_u16 (uint16x8_t)
 
-   * uint8x16_t vreinterpretq_u8_p16 (poly16x8_t)
+   * int32x4_t vreinterpretq_s32_u8 (uint8x16_t)
 
-   * uint8x16_t vreinterpretq_u8_f32 (float32x4_t)
+   * int32x4_t vreinterpretq_s32_s16 (int16x8_t)
 
-   * uint8x16_t vreinterpretq_u8_p64 (poly64x2_t)
+   * int32x4_t vreinterpretq_s32_s8 (int8x16_t)
 
-   * uint8x16_t vreinterpretq_u8_p128 (poly128_t)
+   * int32x4_t vreinterpretq_s32_u64 (uint64x2_t)
 
-   * uint8x16_t vreinterpretq_u8_s64 (int64x2_t)
+   * int32x4_t vreinterpretq_s32_s64 (int64x2_t)
 
-   * uint8x16_t vreinterpretq_u8_u64 (uint64x2_t)
+   * int32x4_t vreinterpretq_s32_f32 (float32x4_t)
 
-   * uint8x16_t vreinterpretq_u8_s8 (int8x16_t)
+   * int32x4_t vreinterpretq_s32_p16 (poly16x8_t)
 
-   * uint8x16_t vreinterpretq_u8_s16 (int16x8_t)
+   * int32x4_t vreinterpretq_s32_p8 (poly8x16_t)
 
-   * uint8x16_t vreinterpretq_u8_s32 (int32x4_t)
+   * uint8x8_t vreinterpret_u8_u32 (uint32x2_t)
 
-   * uint8x16_t vreinterpretq_u8_u16 (uint16x8_t)
+   * uint8x8_t vreinterpret_u8_u16 (uint16x4_t)
+
+   * uint8x8_t vreinterpret_u8_s32 (int32x2_t)
+
+   * uint8x8_t vreinterpret_u8_s16 (int16x4_t)
+
+   * uint8x8_t vreinterpret_u8_s8 (int8x8_t)
+
+   * uint8x8_t vreinterpret_u8_u64 (uint64x1_t)
+
+   * uint8x8_t vreinterpret_u8_s64 (int64x1_t)
+
+   * uint8x8_t vreinterpret_u8_f32 (float32x2_t)
+
+   * uint8x8_t vreinterpret_u8_p16 (poly16x4_t)
+
+   * uint8x8_t vreinterpret_u8_p8 (poly8x8_t)
 
    * uint8x16_t vreinterpretq_u8_u32 (uint32x4_t)
 
-   * uint16x8_t vreinterpretq_u16_p8 (poly8x16_t)
+   * uint8x16_t vreinterpretq_u8_u16 (uint16x8_t)
 
-   * uint16x8_t vreinterpretq_u16_p16 (poly16x8_t)
+   * uint8x16_t vreinterpretq_u8_s32 (int32x4_t)
 
-   * uint16x8_t vreinterpretq_u16_f32 (float32x4_t)
+   * uint8x16_t vreinterpretq_u8_s16 (int16x8_t)
 
-   * uint16x8_t vreinterpretq_u16_p64 (poly64x2_t)
+   * uint8x16_t vreinterpretq_u8_s8 (int8x16_t)
 
-   * uint16x8_t vreinterpretq_u16_p128 (poly128_t)
+   * uint8x16_t vreinterpretq_u8_u64 (uint64x2_t)
 
-   * uint16x8_t vreinterpretq_u16_s64 (int64x2_t)
+   * uint8x16_t vreinterpretq_u8_s64 (int64x2_t)
 
-   * uint16x8_t vreinterpretq_u16_u64 (uint64x2_t)
+   * uint8x16_t vreinterpretq_u8_f32 (float32x4_t)
 
-   * uint16x8_t vreinterpretq_u16_s8 (int8x16_t)
+   * uint8x16_t vreinterpretq_u8_p16 (poly16x8_t)
 
-   * uint16x8_t vreinterpretq_u16_s16 (int16x8_t)
+   * uint8x16_t vreinterpretq_u8_p8 (poly8x16_t)
 
-   * uint16x8_t vreinterpretq_u16_s32 (int32x4_t)
+   * uint16x4_t vreinterpret_u16_u32 (uint32x2_t)
 
-   * uint16x8_t vreinterpretq_u16_u8 (uint8x16_t)
+   * uint16x4_t vreinterpret_u16_u8 (uint8x8_t)
+
+   * uint16x4_t vreinterpret_u16_s32 (int32x2_t)
+
+   * uint16x4_t vreinterpret_u16_s16 (int16x4_t)
+
+   * uint16x4_t vreinterpret_u16_s8 (int8x8_t)
+
+   * uint16x4_t vreinterpret_u16_u64 (uint64x1_t)
+
+   * uint16x4_t vreinterpret_u16_s64 (int64x1_t)
+
+   * uint16x4_t vreinterpret_u16_f32 (float32x2_t)
+
+   * uint16x4_t vreinterpret_u16_p16 (poly16x4_t)
+
+   * uint16x4_t vreinterpret_u16_p8 (poly8x8_t)
 
    * uint16x8_t vreinterpretq_u16_u32 (uint32x4_t)
 
-   * uint32x4_t vreinterpretq_u32_p8 (poly8x16_t)
+   * uint16x8_t vreinterpretq_u16_u8 (uint8x16_t)
 
-   * uint32x4_t vreinterpretq_u32_p16 (poly16x8_t)
+   * uint16x8_t vreinterpretq_u16_s32 (int32x4_t)
 
-   * uint32x4_t vreinterpretq_u32_f32 (float32x4_t)
+   * uint16x8_t vreinterpretq_u16_s16 (int16x8_t)
 
-   * uint32x4_t vreinterpretq_u32_p64 (poly64x2_t)
+   * uint16x8_t vreinterpretq_u16_s8 (int8x16_t)
 
-   * uint32x4_t vreinterpretq_u32_p128 (poly128_t)
+   * uint16x8_t vreinterpretq_u16_u64 (uint64x2_t)
 
-   * uint32x4_t vreinterpretq_u32_s64 (int64x2_t)
+   * uint16x8_t vreinterpretq_u16_s64 (int64x2_t)
 
-   * uint32x4_t vreinterpretq_u32_u64 (uint64x2_t)
+   * uint16x8_t vreinterpretq_u16_f32 (float32x4_t)
 
-   * uint32x4_t vreinterpretq_u32_s8 (int8x16_t)
+   * uint16x8_t vreinterpretq_u16_p16 (poly16x8_t)
 
-   * uint32x4_t vreinterpretq_u32_s16 (int16x8_t)
+   * uint16x8_t vreinterpretq_u16_p8 (poly8x16_t)
 
-   * uint32x4_t vreinterpretq_u32_s32 (int32x4_t)
+   * uint32x2_t vreinterpret_u32_u16 (uint16x4_t)
 
-   * uint32x4_t vreinterpretq_u32_u8 (uint8x16_t)
+   * uint32x2_t vreinterpret_u32_u8 (uint8x8_t)
+
+   * uint32x2_t vreinterpret_u32_s32 (int32x2_t)
+
+   * uint32x2_t vreinterpret_u32_s16 (int16x4_t)
+
+   * uint32x2_t vreinterpret_u32_s8 (int8x8_t)
+
+   * uint32x2_t vreinterpret_u32_u64 (uint64x1_t)
+
+   * uint32x2_t vreinterpret_u32_s64 (int64x1_t)
+
+   * uint32x2_t vreinterpret_u32_f32 (float32x2_t)
+
+   * uint32x2_t vreinterpret_u32_p16 (poly16x4_t)
+
+   * uint32x2_t vreinterpret_u32_p8 (poly8x8_t)
 
    * uint32x4_t vreinterpretq_u32_u16 (uint16x8_t)
 
-   * poly128_t vldrq_p128(poly128_t const *)
+   * uint32x4_t vreinterpretq_u32_u8 (uint8x16_t)
 
-   * void vstrq_p128(poly128_t *, poly128_t)
+   * uint32x4_t vreinterpretq_u32_s32 (int32x4_t)
 
-   * uint64x1_t vceq_p64 (poly64x1_t, poly64x1_t)
+   * uint32x4_t vreinterpretq_u32_s16 (int16x8_t)
 
-   * uint64x1_t vtst_p64 (poly64x1_t, poly64x1_t)
+   * uint32x4_t vreinterpretq_u32_s8 (int8x16_t)
 
-   * uint32_t vsha1h_u32 (uint32_t)
-     _Form of expected instruction(s):_ 'sha1h.32 Q0, Q1'
+   * uint32x4_t vreinterpretq_u32_u64 (uint64x2_t)
 
-   * uint32x4_t vsha1cq_u32 (uint32x4_t, uint32_t, uint32x4_t)
-     _Form of expected instruction(s):_ 'sha1c.32 Q0, Q1, Q2'
+   * uint32x4_t vreinterpretq_u32_s64 (int64x2_t)
 
-   * uint32x4_t vsha1pq_u32 (uint32x4_t, uint32_t, uint32x4_t)
-     _Form of expected instruction(s):_ 'sha1p.32 Q0, Q1, Q2'
+   * uint32x4_t vreinterpretq_u32_f32 (float32x4_t)
 
-   * uint32x4_t vsha1mq_u32 (uint32x4_t, uint32_t, uint32x4_t)
-     _Form of expected instruction(s):_ 'sha1m.32 Q0, Q1, Q2'
+   * uint32x4_t vreinterpretq_u32_p16 (poly16x8_t)
 
-   * uint32x4_t vsha1su0q_u32 (uint32x4_t, uint32x4_t, uint32x4_t)
-     _Form of expected instruction(s):_ 'sha1su0.32 Q0, Q1, Q2'
-
-   * uint32x4_t vsha1su1q_u32 (uint32x4_t, uint32x4_t)
-     _Form of expected instruction(s):_ 'sha1su1.32 Q0, Q1, Q2'
-
-   * uint32x4_t vsha256hq_u32 (uint32x4_t, uint32x4_t, uint32x4_t)
-     _Form of expected instruction(s):_ 'sha256h.32 Q0, Q1, Q2'
-
-   * uint32x4_t vsha256h2q_u32 (uint32x4_t, uint32x4_t, uint32x4_t)
-     _Form of expected instruction(s):_ 'sha256h2.32 Q0, Q1, Q2'
-
-   * uint32x4_t vsha256su0q_u32 (uint32x4_t, uint32x4_t)
-     _Form of expected instruction(s):_ 'sha256su0.32 Q0, Q1'
-
-   * uint32x4_t vsha256su1q_u32 (uint32x4_t, uint32x4_t, uint32x4_t)
-     _Form of expected instruction(s):_ 'sha256su1.32 Q0, Q1, Q2'
-
-   * poly128_t vmull_p64 (poly64_t a, poly64_t b)
-     _Form of expected instruction(s):_ 'vmull.p64 Q0, D1, D2'
-
-   * poly128_t vmull_high_p64 (poly64x2_t a, poly64x2_t b)
-     _Form of expected instruction(s):_ 'vmull.p64 Q0, D1, D2'
+   * uint32x4_t vreinterpretq_u32_p8 (poly8x16_t)
 
 
-File: gcc.info,  Node: ARM ACLE Intrinsics,  Next: AVR Built-in Functions,  Prev: ARM NEON Intrinsics,  Up: Target Builtins
+File: gcc.info,  Node: AVR Built-in Functions,  Next: Blackfin Built-in Functions,  Prev: ARM NEON Intrinsics,  Up: Target Builtins
 
-6.56.4 ARM ACLE Intrinsics
---------------------------
-
-These built-in intrinsics for the ARMv8-A CRC32 extension are available
-when the '-march=armv8-a+crc' switch is used:
-
-6.56.4.1 CRC32 intrinsics
-.........................
-
-   * uint32_t __crc32b (uint32_t, uint8_t)
-     _Form of expected instruction(s):_ 'crc32b R0, R0, R0'
-
-   * uint32_t __crc32h (uint32_t, uint16_t)
-     _Form of expected instruction(s):_ 'crc32h R0, R0, R0'
-
-   * uint32_t __crc32w (uint32_t, uint32_t)
-     _Form of expected instruction(s):_ 'crc32w R0, R0, R0'
-
-   * uint32_t __crc32d (uint32_t, uint64_t)
-     _Form of expected instruction(s):_ Two 'crc32w R0, R0, R0'
-     instructions for AArch32.  One 'crc32w W0, W0, X0' instruction for
-     AArch64.
-
-   * uint32_t __crc32cb (uint32_t, uint8_t)
-     _Form of expected instruction(s):_ 'crc32cb R0, R0, R0'
-
-   * uint32_t __crc32ch (uint32_t, uint16_t)
-     _Form of expected instruction(s):_ 'crc32ch R0, R0, R0'
-
-   * uint32_t __crc32cw (uint32_t, uint32_t)
-     _Form of expected instruction(s):_ 'crc32cw R0, R0, R0'
-
-   * uint32_t __crc32cd (uint32_t, uint64_t)
-     _Form of expected instruction(s):_ Two 'crc32cw R0, R0, R0'
-     instructions for AArch32.  One 'crc32cw W0, W0, X0' instruction for
-     AArch64.
-
-
-File: gcc.info,  Node: AVR Built-in Functions,  Next: Blackfin Built-in Functions,  Prev: ARM ACLE Intrinsics,  Up: Target Builtins
-
-6.56.5 AVR Built-in Functions
+6.56.4 AVR Built-in Functions
 -----------------------------
 
 For each built-in function for AVR, there is an equally named, uppercase
@@ -36363,7 +36036,7 @@ values to non-contiguous port layouts.  Some examples:
 
 File: gcc.info,  Node: Blackfin Built-in Functions,  Next: FR-V Built-in Functions,  Prev: AVR Built-in Functions,  Up: Target Builtins
 
-6.56.6 Blackfin Built-in Functions
+6.56.5 Blackfin Built-in Functions
 ----------------------------------
 
 Currently, there are two Blackfin-specific built-in functions.  These
@@ -36378,7 +36051,7 @@ instructions.  These functions are named as follows:
 
 File: gcc.info,  Node: FR-V Built-in Functions,  Next: X86 Built-in Functions,  Prev: Blackfin Built-in Functions,  Up: Target Builtins
 
-6.56.7 FR-V Built-in Functions
+6.56.6 FR-V Built-in Functions
 ------------------------------
 
 GCC provides many FR-V-specific built-in functions.  In general, these
@@ -36402,7 +36075,7 @@ tabular form.
 
 File: gcc.info,  Node: Argument Types,  Next: Directly-mapped Integer Functions,  Up: FR-V Built-in Functions
 
-6.56.7.1 Argument Types
+6.56.6.1 Argument Types
 .......................
 
 The arguments to the built-in functions can be divided into three
@@ -36441,7 +36114,7 @@ details.
 
 File: gcc.info,  Node: Directly-mapped Integer Functions,  Next: Directly-mapped Media Functions,  Prev: Argument Types,  Up: FR-V Built-in Functions
 
-6.56.7.2 Directly-mapped Integer Functions
+6.56.6.2 Directly-mapped Integer Functions
 ..........................................
 
 The functions listed below map directly to FR-V I-type instructions.
@@ -36461,7 +36134,7 @@ Function prototype               Example usage           Assembly output
 
 File: gcc.info,  Node: Directly-mapped Media Functions,  Next: Raw read/write Functions,  Prev: Directly-mapped Integer Functions,  Up: FR-V Built-in Functions
 
-6.56.7.3 Directly-mapped Media Functions
+6.56.6.3 Directly-mapped Media Functions
 ........................................
 
 The functions listed below map directly to FR-V M-type instructions.
@@ -36608,7 +36281,7 @@ sw2)'                            B)'                     A,B,C'
 
 File: gcc.info,  Node: Raw read/write Functions,  Next: Other Built-in Functions,  Prev: Directly-mapped Media Functions,  Up: FR-V Built-in Functions
 
-6.56.7.4 Raw read/write Functions
+6.56.6.4 Raw read/write Functions
 .................................
 
 This sections describes built-in functions related to read and write
@@ -36629,7 +36302,7 @@ described in Fujitsu's manual described above.
 
 File: gcc.info,  Node: Other Built-in Functions,  Prev: Raw read/write Functions,  Up: FR-V Built-in Functions
 
-6.56.7.5 Other Built-in Functions
+6.56.6.5 Other Built-in Functions
 .................................
 
 This section describes built-in functions that are not named after a
@@ -36662,7 +36335,7 @@ specific FR-V instruction.
 
 File: gcc.info,  Node: X86 Built-in Functions,  Next: X86 transactional memory intrinsics,  Prev: FR-V Built-in Functions,  Up: Target Builtins
 
-6.56.8 X86 Built-in Functions
+6.56.7 X86 Built-in Functions
 -----------------------------
 
 These built-in functions are available for the i386 and x86-64 family of
@@ -37962,7 +37635,7 @@ transactional memory intrinsics:: should be used instead.
 
 File: gcc.info,  Node: X86 transactional memory intrinsics,  Next: MIPS DSP Built-in Functions,  Prev: X86 Built-in Functions,  Up: Target Builtins
 
-6.56.9 X86 transaction memory intrinsics
+6.56.8 X86 transaction memory intrinsics
 ----------------------------------------
 
 Hardware transactional memory intrinsics for i386.  These allow to use
@@ -38028,8 +37701,8 @@ and suitable fallback code always needs to be supplied.
 
 File: gcc.info,  Node: MIPS DSP Built-in Functions,  Next: MIPS Paired-Single Support,  Prev: X86 transactional memory intrinsics,  Up: Target Builtins
 
-6.56.10 MIPS DSP Built-in Functions
------------------------------------
+6.56.9 MIPS DSP Built-in Functions
+----------------------------------
 
 The MIPS DSP Application-Specific Extension (ASE) includes new
 instructions that are designed to improve the performance of DSP and
@@ -38301,7 +37974,7 @@ details on what each instruction does.
 
 File: gcc.info,  Node: MIPS Paired-Single Support,  Next: MIPS Loongson Built-in Functions,  Prev: MIPS DSP Built-in Functions,  Up: Target Builtins
 
-6.56.11 MIPS Paired-Single Support
+6.56.10 MIPS Paired-Single Support
 ----------------------------------
 
 The MIPS64 architecture includes a number of instructions that operate
@@ -38337,7 +38010,7 @@ targets.  For example, the code above sets the lower half of 'a' to
 
 File: gcc.info,  Node: MIPS Loongson Built-in Functions,  Next: Other MIPS Built-in Functions,  Prev: MIPS Paired-Single Support,  Up: Target Builtins
 
-6.56.12 MIPS Loongson Built-in Functions
+6.56.11 MIPS Loongson Built-in Functions
 ----------------------------------------
 
 GCC provides intrinsics to access the SIMD instructions provided by the
@@ -38468,7 +38141,7 @@ each instruction.
 
 File: gcc.info,  Node: Paired-Single Arithmetic,  Next: Paired-Single Built-in Functions,  Up: MIPS Loongson Built-in Functions
 
-6.56.12.1 Paired-Single Arithmetic
+6.56.11.1 Paired-Single Arithmetic
 ..................................
 
 The table below lists the 'v2sf' operations for which hardware support
@@ -38492,7 +38165,7 @@ the command-line option '-mno-fused-madd'.
 
 File: gcc.info,  Node: Paired-Single Built-in Functions,  Next: MIPS-3D Built-in Functions,  Prev: Paired-Single Arithmetic,  Up: MIPS Loongson Built-in Functions
 
-6.56.12.2 Paired-Single Built-in Functions
+6.56.11.2 Paired-Single Built-in Functions
 ..........................................
 
 The following paired-single functions map directly to a particular MIPS
@@ -38571,7 +38244,7 @@ case, COND can be any of the 16 floating-point conditions: 'f', 'un',
 
 File: gcc.info,  Node: MIPS-3D Built-in Functions,  Prev: Paired-Single Built-in Functions,  Up: MIPS Loongson Built-in Functions
 
-6.56.12.3 MIPS-3D Built-in Functions
+6.56.11.3 MIPS-3D Built-in Functions
 ....................................
 
 The MIPS-3D Application-Specific Extension (ASE) includes additional
@@ -38719,7 +38392,7 @@ case, COND can be any of the 16 floating-point conditions: 'f', 'un',
 
 File: gcc.info,  Node: Other MIPS Built-in Functions,  Next: picoChip Built-in Functions,  Prev: MIPS Loongson Built-in Functions,  Up: Target Builtins
 
-6.56.13 Other MIPS Built-in Functions
+6.56.12 Other MIPS Built-in Functions
 -------------------------------------
 
 GCC provides other MIPS-specific built-in functions:
@@ -38732,7 +38405,7 @@ GCC provides other MIPS-specific built-in functions:
 
 File: gcc.info,  Node: picoChip Built-in Functions,  Next: PowerPC Built-in Functions,  Prev: Other MIPS Built-in Functions,  Up: Target Builtins
 
-6.56.14 picoChip Built-in Functions
+6.56.13 picoChip Built-in Functions
 -----------------------------------
 
 GCC provides an interface to selected machine instructions from the
@@ -38768,7 +38441,7 @@ picoChip instruction set.
 
 File: gcc.info,  Node: PowerPC Built-in Functions,  Next: PowerPC AltiVec/VSX Built-in Functions,  Prev: picoChip Built-in Functions,  Up: Target Builtins
 
-6.56.15 PowerPC Built-in Functions
+6.56.14 PowerPC Built-in Functions
 ----------------------------------
 
 These built-in functions are available for the PowerPC family of
@@ -38800,7 +38473,7 @@ the most significant word on 32-bit environments.
 
 File: gcc.info,  Node: PowerPC AltiVec/VSX Built-in Functions,  Next: RX Built-in Functions,  Prev: PowerPC Built-in Functions,  Up: Target Builtins
 
-6.56.16 PowerPC AltiVec Built-in Functions
+6.56.15 PowerPC AltiVec Built-in Functions
 ------------------------------------------
 
 GCC provides an interface for the PowerPC family of processors to access
@@ -40842,7 +40515,7 @@ instructions.
 
 File: gcc.info,  Node: RX Built-in Functions,  Next: S/390 System z Built-in Functions,  Prev: PowerPC AltiVec/VSX Built-in Functions,  Up: Target Builtins
 
-6.56.17 RX Built-in Functions
+6.56.16 RX Built-in Functions
 -----------------------------
 
 GCC supports some of the RX instructions which cannot be expressed in
@@ -40940,7 +40613,7 @@ following functions are supported:
 
 File: gcc.info,  Node: S/390 System z Built-in Functions,  Next: SH Built-in Functions,  Prev: RX Built-in Functions,  Up: Target Builtins
 
-6.56.18 S/390 System z Built-in Functions
+6.56.17 S/390 System z Built-in Functions
 -----------------------------------------
 
  -- Built-in Function: int __builtin_tbegin (void*)
@@ -41045,7 +40718,7 @@ File: gcc.info,  Node: S/390 System z Built-in Functions,  Next: SH Built-in Fun
 
 File: gcc.info,  Node: SH Built-in Functions,  Next: SPARC VIS Built-in Functions,  Prev: S/390 System z Built-in Functions,  Up: Target Builtins
 
-6.56.19 SH Built-in Functions
+6.56.18 SH Built-in Functions
 -----------------------------
 
 The following built-in functions are supported on the SH1, SH2, SH3 and
@@ -41079,7 +40752,7 @@ SH4 families of processors:
 
 File: gcc.info,  Node: SPARC VIS Built-in Functions,  Next: SPU Built-in Functions,  Prev: SH Built-in Functions,  Up: Target Builtins
 
-6.56.20 SPARC VIS Built-in Functions
+6.56.19 SPARC VIS Built-in Functions
 ------------------------------------
 
 GCC supports SIMD operations on the SPARC using both the generic vector
@@ -41219,7 +40892,7 @@ functions also become available:
 
 File: gcc.info,  Node: SPU Built-in Functions,  Next: TI C6X Built-in Functions,  Prev: SPARC VIS Built-in Functions,  Up: Target Builtins
 
-6.56.21 SPU Built-in Functions
+6.56.20 SPU Built-in Functions
 ------------------------------
 
 GCC provides extensions for the SPU processor as described in the
@@ -41264,7 +40937,7 @@ are subject to change without notice.
 
 File: gcc.info,  Node: TI C6X Built-in Functions,  Next: TILE-Gx Built-in Functions,  Prev: SPU Built-in Functions,  Up: Target Builtins
 
-6.56.22 TI C6X Built-in Functions
+6.56.21 TI C6X Built-in Functions
 ---------------------------------
 
 GCC provides intrinsics to access certain instructions of the TI C6X
@@ -41303,7 +40976,7 @@ C6X instructions.
 
 File: gcc.info,  Node: TILE-Gx Built-in Functions,  Next: TILEPro Built-in Functions,  Prev: TI C6X Built-in Functions,  Up: Target Builtins
 
-6.56.23 TILE-Gx Built-in Functions
+6.56.22 TILE-Gx Built-in Functions
 ----------------------------------
 
 GCC provides intrinsics to access every instruction of the TILE-Gx
@@ -41334,7 +41007,7 @@ that no network operations before it are reordered with those after it.
 
 File: gcc.info,  Node: TILEPro Built-in Functions,  Prev: TILE-Gx Built-in Functions,  Up: Target Builtins
 
-6.56.24 TILEPro Built-in Functions
+6.56.23 TILEPro Built-in Functions
 ----------------------------------
 
 GCC provides intrinsics to access every instruction of the TILEPro
@@ -48564,18 +48237,18 @@ look up both forms.
                                                              (line   19)
 * fada-spec-parent:                      Overall Options.    (line  367)
 * faggressive-loop-optimizations:        Optimize Options.   (line  506)
-* falign-functions:                      Optimize Options.   (line 1459)
-* falign-jumps:                          Optimize Options.   (line 1508)
-* falign-labels:                         Optimize Options.   (line 1477)
-* falign-loops:                          Optimize Options.   (line 1495)
-* fassociative-math:                     Optimize Options.   (line 1952)
+* falign-functions:                      Optimize Options.   (line 1458)
+* falign-jumps:                          Optimize Options.   (line 1507)
+* falign-labels:                         Optimize Options.   (line 1476)
+* falign-loops:                          Optimize Options.   (line 1494)
+* fassociative-math:                     Optimize Options.   (line 1951)
 * fasynchronous-unwind-tables:           Code Gen Options.   (line  145)
 * fauto-inc-dec:                         Optimize Options.   (line  530)
 * fbounds-check:                         Code Gen Options.   (line   15)
-* fbranch-probabilities:                 Optimize Options.   (line 2080)
-* fbranch-target-load-optimize:          Optimize Options.   (line 2188)
-* fbranch-target-load-optimize2:         Optimize Options.   (line 2194)
-* fbtr-bb-exclusive:                     Optimize Options.   (line 2198)
+* fbranch-probabilities:                 Optimize Options.   (line 2079)
+* fbranch-target-load-optimize:          Optimize Options.   (line 2187)
+* fbranch-target-load-optimize2:         Optimize Options.   (line 2193)
+* fbtr-bb-exclusive:                     Optimize Options.   (line 2197)
 * fcall-saved:                           Code Gen Options.   (line  342)
 * fcall-used:                            Code Gen Options.   (line  328)
 * fcaller-saves:                         Optimize Options.   (line  825)
@@ -48587,20 +48260,20 @@ look up both forms.
                                                              (line  104)
 * fcompare-debug:                        Debugging Options.  (line  200)
 * fcompare-debug-second:                 Debugging Options.  (line  226)
-* fcompare-elim:                         Optimize Options.   (line 1788)
+* fcompare-elim:                         Optimize Options.   (line 1787)
 * fcond-mismatch:                        C Dialect Options.  (line  317)
 * fconserve-stack:                       Optimize Options.   (line  843)
 * fconstant-string-class:                Objective-C and Objective-C++ Dialect Options.
                                                              (line   30)
 * fconstexpr-depth:                      C++ Dialect Options.
                                                              (line   64)
-* fcprop-registers:                      Optimize Options.   (line 1806)
+* fcprop-registers:                      Optimize Options.   (line 1805)
 * fcrossjumping:                         Optimize Options.   (line  523)
 * fcse-follow-jumps:                     Optimize Options.   (line  442)
 * fcse-skip-blocks:                      Optimize Options.   (line  451)
-* fcx-fortran-rules:                     Optimize Options.   (line 2067)
-* fcx-limited-range:                     Optimize Options.   (line 2055)
-* fdata-sections:                        Optimize Options.   (line 2169)
+* fcx-fortran-rules:                     Optimize Options.   (line 2066)
+* fcx-limited-range:                     Optimize Options.   (line 2054)
+* fdata-sections:                        Optimize Options.   (line 2168)
 * fdbg-cnt:                              Debugging Options.  (line  461)
 * fdbg-cnt-list:                         Debugging Options.  (line  458)
 * fdce:                                  Optimize Options.   (line  536)
@@ -48741,7 +48414,7 @@ look up both forms.
 * feliminate-unused-debug-types:         Debugging Options.  (line 1362)
 * fenable-:                              Debugging Options.  (line  471)
 * fexceptions:                           Code Gen Options.   (line  108)
-* fexcess-precision:                     Optimize Options.   (line 1879)
+* fexcess-precision:                     Optimize Options.   (line 1878)
 * fexec-charset:                         Preprocessor Options.
                                                              (line  554)
 * fexpensive-optimizations:              Optimize Options.   (line  584)
@@ -48751,12 +48424,12 @@ look up both forms.
                                                              (line  499)
 * fextern-tls-init:                      C++ Dialect Options.
                                                              (line  120)
-* ffast-math:                            Optimize Options.   (line 1902)
-* ffat-lto-objects:                      Optimize Options.   (line 1769)
-* ffinite-math-only:                     Optimize Options.   (line 1979)
+* ffast-math:                            Optimize Options.   (line 1901)
+* ffat-lto-objects:                      Optimize Options.   (line 1768)
+* ffinite-math-only:                     Optimize Options.   (line 1978)
 * ffix-and-continue:                     Darwin Options.     (line  104)
 * ffixed:                                Code Gen Options.   (line  316)
-* ffloat-store:                          Optimize Options.   (line 1865)
+* ffloat-store:                          Optimize Options.   (line 1864)
 * ffloat-store <1>:                      Disappointments.    (line   77)
 * ffor-scope:                            C++ Dialect Options.
                                                              (line  141)
@@ -48769,7 +48442,7 @@ look up both forms.
                                                              (line  454)
 * ffriend-injection:                     C++ Dialect Options.
                                                              (line   91)
-* ffunction-sections:                    Optimize Options.   (line 2169)
+* ffunction-sections:                    Optimize Options.   (line 2168)
 * fgcse:                                 Optimize Options.   (line  465)
 * fgcse-after-reload:                    Optimize Options.   (line  501)
 * fgcse-las:                             Optimize Options.   (line  494)
@@ -48821,8 +48494,8 @@ look up both forms.
 * floop-nest-optimize:                   Optimize Options.   (line 1078)
 * floop-parallelize-all:                 Optimize Options.   (line 1084)
 * floop-strip-mine:                      Optimize Options.   (line 1020)
-* flto:                                  Optimize Options.   (line 1562)
-* flto-partition:                        Optimize Options.   (line 1724)
+* flto:                                  Optimize Options.   (line 1561)
+* flto-partition:                        Optimize Options.   (line 1723)
 * fmax-errors:                           Warning Options.    (line   18)
 * fmem-report:                           Debugging Options.  (line  348)
 * fmem-report-wpa:                       Debugging Options.  (line  352)
@@ -48833,7 +48506,7 @@ look up both forms.
                                                              (line   14)
 * fmodulo-sched:                         Optimize Options.   (line  359)
 * fmodulo-sched-allow-regmoves:          Optimize Options.   (line  364)
-* fmove-loop-invariants:                 Optimize Options.   (line 2159)
+* fmove-loop-invariants:                 Optimize Options.   (line 2158)
 * fms-extensions:                        C Dialect Options.  (line  281)
 * fms-extensions <1>:                    C++ Dialect Options.
                                                              (line  175)
@@ -48883,7 +48556,7 @@ look up both forms.
 * fno-function-cse:                      Optimize Options.   (line  381)
 * fno-gnu-keywords:                      C++ Dialect Options.
                                                              (line  153)
-* fno-guess-branch-probability:          Optimize Options.   (line 1331)
+* fno-guess-branch-probability:          Optimize Options.   (line 1330)
 * fno-ident:                             Code Gen Options.   (line  234)
 * fno-implement-inlines:                 C++ Dialect Options.
                                                              (line  170)
@@ -48898,7 +48571,7 @@ look up both forms.
 * fno-ira-share-save-slots:              Optimize Options.   (line  654)
 * fno-ira-share-spill-slots:             Optimize Options.   (line  660)
 * fno-jump-tables:                       Code Gen Options.   (line  308)
-* fno-math-errno:                        Optimize Options.   (line 1916)
+* fno-math-errno:                        Optimize Options.   (line 1915)
 * fno-merge-debug-strings:               Debugging Options.  (line  313)
 * fno-nil-receivers:                     Objective-C and Objective-C++ Dialect Options.
                                                              (line   49)
@@ -48908,8 +48581,8 @@ look up both forms.
                                                              (line  196)
 * fno-optional-diags:                    C++ Dialect Options.
                                                              (line  200)
-* fno-peephole:                          Optimize Options.   (line 1322)
-* fno-peephole2:                         Optimize Options.   (line 1322)
+* fno-peephole:                          Optimize Options.   (line 1321)
+* fno-peephole2:                         Optimize Options.   (line 1321)
 * fno-pretty-templates:                  C++ Dialect Options.
                                                              (line  210)
 * fno-rtti:                              C++ Dialect Options.
@@ -48921,12 +48594,12 @@ look up both forms.
 * fno-show-column:                       Preprocessor Options.
                                                              (line  591)
 * fno-signed-bitfields:                  C Dialect Options.  (line  355)
-* fno-signed-zeros:                      Optimize Options.   (line 1991)
+* fno-signed-zeros:                      Optimize Options.   (line 1990)
 * fno-stack-limit:                       Code Gen Options.   (line  478)
 * fno-threadsafe-statics:                C++ Dialect Options.
                                                              (line  264)
-* fno-toplevel-reorder:                  Optimize Options.   (line 1528)
-* fno-trapping-math:                     Optimize Options.   (line 2001)
+* fno-toplevel-reorder:                  Optimize Options.   (line 1527)
+* fno-trapping-math:                     Optimize Options.   (line 2000)
 * fno-unsigned-bitfields:                C Dialect Options.  (line  355)
 * fno-use-cxa-get-exception-ptr:         C++ Dialect Options.
                                                              (line  277)
@@ -48964,14 +48637,14 @@ look up both forms.
 * force_cpusubtype_ALL:                  Darwin Options.     (line  135)
 * force_flat_namespace:                  Darwin Options.     (line  196)
 * fpack-struct:                          Code Gen Options.   (line  359)
-* fpartial-inlining:                     Optimize Options.   (line 1297)
+* fpartial-inlining:                     Optimize Options.   (line 1296)
 * fpcc-struct-return:                    Code Gen Options.   (line  151)
 * fpcc-struct-return <1>:                Incompatibilities.  (line  170)
 * fpch-deps:                             Preprocessor Options.
                                                              (line  296)
 * fpch-preprocess:                       Preprocessor Options.
                                                              (line  304)
-* fpeel-loops:                           Optimize Options.   (line 2151)
+* fpeel-loops:                           Optimize Options.   (line 2150)
 * fpermissive:                           C++ Dialect Options.
                                                              (line  205)
 * fpic:                                  Code Gen Options.   (line  265)
@@ -48981,29 +48654,29 @@ look up both forms.
 * fplan9-extensions:                     Unnamed Fields.     (line   43)
 * fpost-ipa-mem-report:                  Debugging Options.  (line  357)
 * fpre-ipa-mem-report:                   Debugging Options.  (line  356)
-* fpredictive-commoning:                 Optimize Options.   (line 1304)
-* fprefetch-loop-arrays:                 Optimize Options.   (line 1311)
+* fpredictive-commoning:                 Optimize Options.   (line 1303)
+* fprefetch-loop-arrays:                 Optimize Options.   (line 1310)
 * fpreprocessed:                         Preprocessor Options.
                                                              (line  508)
 * fprofile-arcs:                         Debugging Options.  (line  394)
 * fprofile-arcs <1>:                     Other Builtins.     (line  253)
-* fprofile-correction:                   Optimize Options.   (line 1813)
-* fprofile-dir:                          Optimize Options.   (line 1820)
-* fprofile-generate:                     Optimize Options.   (line 1831)
+* fprofile-correction:                   Optimize Options.   (line 1812)
+* fprofile-dir:                          Optimize Options.   (line 1819)
+* fprofile-generate:                     Optimize Options.   (line 1830)
 * fprofile-report:                       Debugging Options.  (line  361)
-* fprofile-use:                          Optimize Options.   (line 1845)
-* fprofile-values:                       Optimize Options.   (line 2099)
+* fprofile-use:                          Optimize Options.   (line 1844)
+* fprofile-values:                       Optimize Options.   (line 2098)
 * fpu:                                   RX Options.         (line   17)
 * frandom-seed:                          Debugging Options.  (line 1164)
-* freciprocal-math:                      Optimize Options.   (line 1969)
+* freciprocal-math:                      Optimize Options.   (line 1968)
 * frecord-gcc-switches:                  Code Gen Options.   (line  253)
 * free:                                  Optimize Options.   (line  590)
 * freg-struct-return:                    Code Gen Options.   (line  169)
 * fregmove:                              Optimize Options.   (line  599)
-* frename-registers:                     Optimize Options.   (line 2118)
-* freorder-blocks:                       Optimize Options.   (line 1348)
-* freorder-blocks-and-partition:         Optimize Options.   (line 1354)
-* freorder-functions:                    Optimize Options.   (line 1365)
+* frename-registers:                     Optimize Options.   (line 2117)
+* freorder-blocks:                       Optimize Options.   (line 1347)
+* freorder-blocks-and-partition:         Optimize Options.   (line 1353)
+* freorder-functions:                    Optimize Options.   (line 1364)
 * freplace-objc-classes:                 Objective-C and Objective-C++ Dialect Options.
                                                              (line  131)
 * frepo:                                 C++ Dialect Options.
@@ -49012,7 +48685,7 @@ look up both forms.
                                                              (line   54)
 * frerun-cse-after-loop:                 Optimize Options.   (line  459)
 * freschedule-modulo-scheduled-loops:    Optimize Options.   (line  797)
-* frounding-math:                        Optimize Options.   (line 2016)
+* frounding-math:                        Optimize Options.   (line 2015)
 * fsched-critical-path-heuristic:        Optimize Options.   (line  763)
 * fsched-dep-count-heuristic:            Optimize Options.   (line  790)
 * fsched-group-heuristic:                Optimize Options.   (line  757)
@@ -49028,7 +48701,7 @@ look up both forms.
 * fsched2-use-superblocks:               Optimize Options.   (line  747)
 * fschedule-insns:                       Optimize Options.   (line  679)
 * fschedule-insns2:                      Optimize Options.   (line  689)
-* fsection-anchors:                      Optimize Options.   (line 2214)
+* fsection-anchors:                      Optimize Options.   (line 2213)
 * fsel-sched-pipelining:                 Optimize Options.   (line  810)
 * fsel-sched-pipelining-outer-loops:     Optimize Options.   (line  815)
 * fselective-scheduling:                 Optimize Options.   (line  802)
@@ -49041,14 +48714,14 @@ look up both forms.
 * fshort-enums <3>:                      Non-bugs.           (line   42)
 * fshort-wchar:                          Code Gen Options.   (line  205)
 * fshrink-wrap:                          Optimize Options.   (line  820)
-* fsignaling-nans:                       Optimize Options.   (line 2036)
+* fsignaling-nans:                       Optimize Options.   (line 2035)
 * fsigned-bitfields:                     C Dialect Options.  (line  355)
 * fsigned-bitfields <1>:                 Non-bugs.           (line   57)
 * fsigned-char:                          C Dialect Options.  (line  345)
 * fsigned-char <1>:                      Characters implementation.
                                                              (line   31)
-* fsingle-precision-constant:            Optimize Options.   (line 2051)
-* fsplit-ivs-in-unroller:                Optimize Options.   (line 1278)
+* fsingle-precision-constant:            Optimize Options.   (line 2050)
+* fsplit-ivs-in-unroller:                Optimize Options.   (line 1277)
 * fsplit-stack:                          Code Gen Options.   (line  492)
 * fsplit-stack <1>:                      Function Attributes.
                                                              (line  958)
@@ -49056,16 +48729,16 @@ look up both forms.
 * fstack-check:                          Code Gen Options.   (line  440)
 * fstack-limit-register:                 Code Gen Options.   (line  478)
 * fstack-limit-symbol:                   Code Gen Options.   (line  478)
-* fstack-protector:                      Optimize Options.   (line 2202)
-* fstack-protector-all:                  Optimize Options.   (line 2211)
+* fstack-protector:                      Optimize Options.   (line 2201)
+* fstack-protector-all:                  Optimize Options.   (line 2210)
 * fstack-usage:                          Debugging Options.  (line  365)
 * fstack_reuse:                          Code Gen Options.   (line   21)
 * fstats:                                C++ Dialect Options.
                                                              (line  237)
-* fstrict-aliasing:                      Optimize Options.   (line 1378)
+* fstrict-aliasing:                      Optimize Options.   (line 1377)
 * fstrict-enums:                         C++ Dialect Options.
                                                              (line  242)
-* fstrict-overflow:                      Optimize Options.   (line 1424)
+* fstrict-overflow:                      Optimize Options.   (line 1423)
 * fstrict-volatile-bitfields:            Code Gen Options.   (line  595)
 * fsync-libcalls:                        Code Gen Options.   (line  623)
 * fsyntax-only:                          Warning Options.    (line   14)
@@ -49079,8 +48752,8 @@ look up both forms.
 * fthread-jumps:                         Optimize Options.   (line  425)
 * ftime-report:                          Debugging Options.  (line  344)
 * ftls-model:                            Code Gen Options.   (line  521)
-* ftracer:                               Optimize Options.   (line 1261)
-* ftracer <1>:                           Optimize Options.   (line 2128)
+* ftracer:                               Optimize Options.   (line 1260)
+* ftracer <1>:                           Optimize Options.   (line 2127)
 * ftrack-macro-expansion:                Preprocessor Options.
                                                              (line  536)
 * ftrapv:                                Code Gen Options.   (line   96)
@@ -49110,16 +48783,17 @@ look up both forms.
 * ftree-slsr:                            Optimize Options.   (line 1224)
 * ftree-sra:                             Optimize Options.   (line 1184)
 * ftree-ter:                             Optimize Options.   (line 1216)
+* ftree-vect-loop-version:               Optimize Options.   (line 1238)
 * ftree-vectorize:                       Optimize Options.   (line 1230)
 * ftree-vectorizer-verbose:              Debugging Options.  (line 1147)
-* ftree-vrp:                             Optimize Options.   (line 1252)
-* funit-at-a-time:                       Optimize Options.   (line 1521)
-* funroll-all-loops:                     Optimize Options.   (line 1272)
-* funroll-all-loops <1>:                 Optimize Options.   (line 2145)
-* funroll-loops:                         Optimize Options.   (line 1266)
-* funroll-loops <1>:                     Optimize Options.   (line 2135)
+* ftree-vrp:                             Optimize Options.   (line 1251)
+* funit-at-a-time:                       Optimize Options.   (line 1520)
+* funroll-all-loops:                     Optimize Options.   (line 1271)
+* funroll-all-loops <1>:                 Optimize Options.   (line 2144)
+* funroll-loops:                         Optimize Options.   (line 1265)
+* funroll-loops <1>:                     Optimize Options.   (line 2134)
 * funsafe-loop-optimizations:            Optimize Options.   (line  515)
-* funsafe-math-optimizations:            Optimize Options.   (line 1934)
+* funsafe-math-optimizations:            Optimize Options.   (line 1933)
 * funsigned-bitfields:                   C Dialect Options.  (line  355)
 * funsigned-bitfields <1>:               Structures unions enumerations and bit-fields implementation.
                                                              (line   17)
@@ -49127,24 +48801,24 @@ look up both forms.
 * funsigned-char:                        C Dialect Options.  (line  327)
 * funsigned-char <1>:                    Characters implementation.
                                                              (line   31)
-* funswitch-loops:                       Optimize Options.   (line 2163)
+* funswitch-loops:                       Optimize Options.   (line 2162)
 * funwind-tables:                        Code Gen Options.   (line  138)
 * fuse-cxa-atexit:                       C++ Dialect Options.
                                                              (line  270)
 * fvar-tracking:                         Debugging Options.  (line 1260)
 * fvar-tracking-assignments:             Debugging Options.  (line 1270)
 * fvar-tracking-assignments-toggle:      Debugging Options.  (line 1279)
-* fvariable-expansion-in-unroller:       Optimize Options.   (line 1292)
-* fvect-cost-model:                      Optimize Options.   (line 1238)
+* fvariable-expansion-in-unroller:       Optimize Options.   (line 1291)
+* fvect-cost-model:                      Optimize Options.   (line 1247)
 * fverbose-asm:                          Code Gen Options.   (line  244)
 * fvisibility:                           Code Gen Options.   (line  529)
 * fvisibility-inlines-hidden:            C++ Dialect Options.
                                                              (line  282)
 * fvisibility-ms-compat:                 C++ Dialect Options.
                                                              (line  310)
-* fvpt:                                  Optimize Options.   (line 2108)
-* fweb:                                  Optimize Options.   (line 1540)
-* fwhole-program:                        Optimize Options.   (line 1551)
+* fvpt:                                  Optimize Options.   (line 2107)
+* fweb:                                  Optimize Options.   (line 1539)
+* fwhole-program:                        Optimize Options.   (line 1550)
 * fwide-exec-charset:                    Preprocessor Options.
                                                              (line  559)
 * fworking-directory:                    Preprocessor Options.
@@ -49315,7 +48989,7 @@ look up both forms.
 * mabi=spe:                              RS/6000 and PowerPC Options.
                                                              (line  544)
 * mabicalls:                             MIPS Options.       (line  154)
-* mabort-on-noreturn:                    ARM Options.        (line  186)
+* mabort-on-noreturn:                    ARM Options.        (line  183)
 * mabsdiff:                              MeP Options.        (line    7)
 * mabshi:                                PDP-11 Options.     (line   55)
 * mac0:                                  PDP-11 Options.     (line   16)
@@ -49372,7 +49046,7 @@ look up both forms.
 * march <8>:                             MIPS Options.       (line   14)
 * march <9>:                             S/390 and zSeries Options.
                                                              (line  114)
-* marm:                                  ARM Options.        (line  250)
+* marm:                                  ARM Options.        (line  247)
 * mas100-syntax:                         RX Options.         (line   76)
 * masm=DIALECT:                          i386 and x86-64 Options.
                                                              (line  276)
@@ -49451,8 +49125,8 @@ look up both forms.
                                                              (line  506)
 * mcall-sysv-noeabi:                     RS/6000 and PowerPC Options.
                                                              (line  509)
-* mcallee-super-interworking:            ARM Options.        (line  269)
-* mcaller-super-interworking:            ARM Options.        (line  276)
+* mcallee-super-interworking:            ARM Options.        (line  266)
+* mcaller-super-interworking:            ARM Options.        (line  273)
 * mcallgraph-data:                       MCore Options.      (line   31)
 * mcbcond:                               SPARC Options.      (line  215)
 * mcbranchdi:                            SH Options.         (line  404)
@@ -49605,7 +49279,7 @@ look up both forms.
 * mfix-24k:                              MIPS Options.       (line  496)
 * mfix-and-continue:                     Darwin Options.     (line  104)
 * mfix-at697f:                           SPARC Options.      (line  235)
-* mfix-cortex-m3-ldrd:                   ARM Options.        (line  309)
+* mfix-cortex-m3-ldrd:                   ARM Options.        (line  306)
 * mfix-r10000:                           MIPS Options.       (line  518)
 * mfix-r4000:                            MIPS Options.       (line  502)
 * mfix-r4400:                            MIPS Options.       (line  512)
@@ -49639,17 +49313,17 @@ look up both forms.
 * mfp-reg:                               DEC Alpha Options.  (line   25)
 * mfp-rounding-mode:                     DEC Alpha Options.  (line   85)
 * mfp-trap-mode:                         DEC Alpha Options.  (line   63)
-* mfp16-format:                          ARM Options.        (line  166)
+* mfp16-format:                          ARM Options.        (line  163)
 * mfp32:                                 MIPS Options.       (line  220)
 * mfp64:                                 MIPS Options.       (line  223)
-* mfpmath:                               Optimize Options.   (line 1894)
+* mfpmath:                               Optimize Options.   (line 1893)
 * mfpmath <1>:                           i386 and x86-64 Options.
                                                              (line  227)
 * mfpr-32:                               FRV Options.        (line   15)
 * mfpr-64:                               FRV Options.        (line   19)
 * mfprnd:                                RS/6000 and PowerPC Options.
                                                              (line   27)
-* mfpu:                                  ARM Options.        (line  146)
+* mfpu:                                  ARM Options.        (line  143)
 * mfpu <1>:                              PDP-11 Options.     (line    9)
 * mfpu <2>:                              RS/6000 and PowerPC Options.
                                                              (line  307)
@@ -49802,7 +49476,7 @@ look up both forms.
 * mlocal-sdata:                          MIPS Options.       (line  337)
 * mlong-calls:                           Adapteva Epiphany Options.
                                                              (line   55)
-* mlong-calls <1>:                       ARM Options.        (line  191)
+* mlong-calls <1>:                       ARM Options.        (line  188)
 * mlong-calls <2>:                       Blackfin Options.   (line  120)
 * mlong-calls <3>:                       FRV Options.        (line  122)
 * mlong-calls <4>:                       MIPS Options.       (line  465)
@@ -49876,7 +49550,7 @@ look up both forms.
 * mmvme:                                 RS/6000 and PowerPC Options.
                                                              (line  577)
 * mn:                                    H8/300 Options.     (line   20)
-* mneon-for-64bits:                      ARM Options.        (line  329)
+* mneon-for-64bits:                      ARM Options.        (line  326)
 * mnested-cond-exec:                     FRV Options.        (line  230)
 * mnhwloop:                              Score Options.      (line   15)
 * mno-3dnow:                             i386 and x86-64 Options.
@@ -50008,7 +49682,7 @@ look up both forms.
 * mno-libfuncs:                          MMIX Options.       (line   10)
 * mno-llsc:                              MIPS Options.       (line  252)
 * mno-local-sdata:                       MIPS Options.       (line  337)
-* mno-long-calls:                        ARM Options.        (line  191)
+* mno-long-calls:                        ARM Options.        (line  188)
 * mno-long-calls <1>:                    Blackfin Options.   (line  120)
 * mno-long-calls <2>:                    HPPA Options.       (line  135)
 * mno-long-calls <3>:                    MIPS Options.       (line  465)
@@ -50147,7 +49821,7 @@ look up both forms.
 * mno-toplevel-symbols:                  MMIX Options.       (line   39)
 * mno-tpf-trace:                         S/390 and zSeries Options.
                                                              (line  129)
-* mno-unaligned-access:                  ARM Options.        (line  316)
+* mno-unaligned-access:                  ARM Options.        (line  313)
 * mno-unaligned-doubles:                 SPARC Options.      (line   71)
 * mno-uninit-const-in-rodata:            MIPS Options.       (line  394)
 * mno-update:                            RS/6000 and PowerPC Options.
@@ -50213,12 +49887,12 @@ look up both forms.
                                                              (line  270)
 * mpe-aligned-commons:                   i386 and x86-64 Windows Options.
                                                              (line   59)
-* mpic-register:                         ARM Options.        (line  221)
+* mpic-register:                         ARM Options.        (line  218)
 * mpid:                                  RX Options.         (line  117)
 * mplt:                                  MIPS Options.       (line  181)
 * mpointers-to-nested-functions:         RS/6000 and PowerPC Options.
                                                              (line  787)
-* mpoke-function-name:                   ARM Options.        (line  228)
+* mpoke-function-name:                   ARM Options.        (line  225)
 * mpopc:                                 SPARC Options.      (line  222)
 * mpopcntb:                              RS/6000 and PowerPC Options.
                                                              (line   27)
@@ -50279,7 +49953,7 @@ look up both forms.
 * mrelocatable-lib:                      RS/6000 and PowerPC Options.
                                                              (line  410)
 * mrepeat:                               MeP Options.        (line   96)
-* mrestrict-it:                          ARM Options.        (line  334)
+* mrestrict-it:                          ARM Options.        (line  331)
 * mreturn-pointer-on-d0:                 MN10300 Options.    (line   36)
 * mrh850-abi:                            V850 Options.       (line  127)
 * mrtd:                                  i386 and x86-64 Options.
@@ -50370,7 +50044,7 @@ look up both forms.
 * msingle-float:                         MIPS Options.       (line  243)
 * msingle-float <1>:                     RS/6000 and PowerPC Options.
                                                              (line  299)
-* msingle-pic-base:                      ARM Options.        (line  215)
+* msingle-pic-base:                      ARM Options.        (line  212)
 * msingle-pic-base <1>:                  RS/6000 and PowerPC Options.
                                                              (line  442)
 * msio:                                  HPPA Options.       (line  104)
@@ -50439,7 +50113,7 @@ look up both forms.
                                                              (line  330)
 * mstringop-strategy=ALG:                i386 and x86-64 Options.
                                                              (line  768)
-* mstructure-size-boundary:              ARM Options.        (line  172)
+* mstructure-size-boundary:              ARM Options.        (line  169)
 * msvr4-struct-return:                   RS/6000 and PowerPC Options.
                                                              (line  535)
 * msym32:                                MIPS Options.       (line  322)
@@ -50455,13 +50129,13 @@ look up both forms.
                                                              (line   26)
 * mthreads:                              i386 and x86-64 Options.
                                                              (line  745)
-* mthumb:                                ARM Options.        (line  250)
+* mthumb:                                ARM Options.        (line  247)
 * mthumb-interwork:                      ARM Options.        (line   25)
 * mtiny-stack:                           AVR Options.        (line  212)
 * mtiny=:                                MeP Options.        (line  125)
 * mTLS:                                  FRV Options.        (line   90)
 * mtls:                                  FRV Options.        (line   94)
-* mtls-dialect:                          ARM Options.        (line  292)
+* mtls-dialect:                          ARM Options.        (line  289)
 * mtls-dialect <1>:                      i386 and x86-64 Options.
                                                              (line  723)
 * mtls-dialect=desc:                     AArch64 Options.    (line   47)
@@ -50475,9 +50149,9 @@ look up both forms.
                                                              (line  419)
 * mtomcat-stats:                         FRV Options.        (line  254)
 * mtoplevel-symbols:                     MMIX Options.       (line   39)
-* mtp:                                   ARM Options.        (line  284)
-* mtpcs-frame:                           ARM Options.        (line  257)
-* mtpcs-leaf-frame:                      ARM Options.        (line  263)
+* mtp:                                   ARM Options.        (line  281)
+* mtpcs-frame:                           ARM Options.        (line  254)
+* mtpcs-leaf-frame:                      ARM Options.        (line  260)
 * mtpf-trace:                            S/390 and zSeries Options.
                                                              (line  129)
 * mtrap-precision:                       DEC Alpha Options.  (line  109)
@@ -50504,7 +50178,7 @@ look up both forms.
 * multiply_defined:                      Darwin Options.     (line  196)
 * multiply_defined_unused:               Darwin Options.     (line  196)
 * multi_module:                          Darwin Options.     (line  196)
-* munaligned-access:                     ARM Options.        (line  316)
+* munaligned-access:                     ARM Options.        (line  313)
 * munaligned-doubles:                    SPARC Options.      (line   71)
 * municode:                              i386 and x86-64 Windows Options.
                                                              (line   30)
@@ -50559,7 +50233,7 @@ look up both forms.
                                                              (line   35)
 * mwindows:                              i386 and x86-64 Windows Options.
                                                              (line   41)
-* mword-relocations:                     ARM Options.        (line  303)
+* mword-relocations:                     ARM Options.        (line  300)
 * mwords-little-endian:                  ARM Options.        (line   66)
 * mx32:                                  i386 and x86-64 Options.
                                                              (line  832)
@@ -50624,7 +50298,7 @@ look up both forms.
 * P:                                     Preprocessor Options.
                                                              (line  647)
 * pagezero_size:                         Darwin Options.     (line  196)
-* param:                                 Optimize Options.   (line 2238)
+* param:                                 Optimize Options.   (line 2237)
 * pass-exit-codes:                       Overall Options.    (line  150)
 * pedantic:                              Standards.          (line   16)
 * pedantic <1>:                          Warning Options.    (line   71)
@@ -51879,7 +51553,7 @@ Keyword Index
 * flexible array members:                Zero Length.        (line    6)
 * 'float' as function value type:        Incompatibilities.  (line  141)
 * floating point precision:              Disappointments.    (line   68)
-* floating-point precision:              Optimize Options.   (line 1869)
+* floating-point precision:              Optimize Options.   (line 1868)
 * floor:                                 Other Builtins.     (line    6)
 * floorf:                                Other Builtins.     (line    6)
 * floorl:                                Other Builtins.     (line    6)
@@ -52952,302 +52626,301 @@ Node: G++ and GCC3710
 Node: Standards5767
 Node: Invoking GCC17947
 Node: Option Summary21692
-Node: Overall Options61517
-Node: Invoking G++75704
-Node: C Dialect Options77227
-Node: C++ Dialect Options93062
-Node: Objective-C and Objective-C++ Dialect Options121130
-Node: Language Independent Options131637
-Node: Warning Options133834
-Node: Debugging Options202978
-Node: Optimize Options260476
-Ref: Type-punning319303
-Node: Preprocessor Options397659
-Ref: Wtrigraphs402442
-Ref: dashMF407192
-Ref: fdollars-in-identifiers418073
-Node: Assembler Options428298
-Node: Link Options428989
-Ref: Link Options-Footnote-1440221
-Node: Directory Options440557
-Node: Spec Files447102
-Node: Target Options468446
-Node: Submodel Options468845
-Node: AArch64 Options470538
-Node: Adapteva Epiphany Options474443
-Node: ARM Options480391
-Node: AVR Options496816
-Node: Blackfin Options516950
-Node: C6X Options524968
-Node: CRIS Options526511
-Node: CR16 Options530250
-Node: Darwin Options531161
-Node: DEC Alpha Options538593
-Node: FR30 Options550209
-Node: FRV Options550773
-Node: GNU/Linux Options557537
-Node: H8/300 Options558797
-Node: HPPA Options560249
-Node: i386 and x86-64 Options569734
-Node: i386 and x86-64 Windows Options606840
-Node: IA-64 Options609693
-Node: LM32 Options617759
-Node: M32C Options618282
-Node: M32R/D Options619555
-Node: M680x0 Options623100
-Node: MCore Options637135
-Node: MeP Options638637
-Node: MicroBlaze Options642596
-Node: MIPS Options645398
-Node: MMIX Options674250
-Node: MN10300 Options676727
-Node: Moxie Options679268
-Node: PDP-11 Options679638
-Node: picoChip Options681330
-Node: PowerPC Options683468
-Node: RL78 Options683689
-Node: RS/6000 and PowerPC Options684350
-Node: RX Options719179
-Node: S/390 and zSeries Options726511
-Node: Score Options735058
-Node: SH Options735907
-Node: Solaris 2 Options754745
-Node: SPARC Options755975
-Node: SPU Options768860
-Node: System V Options773799
-Node: TILE-Gx Options774625
-Node: TILEPro Options775549
-Node: V850 Options776053
-Node: VAX Options782761
-Node: VMS Options783296
-Node: VxWorks Options784109
-Node: x86-64 Options785264
-Node: Xstormy16 Options785482
-Node: Xtensa Options785771
-Node: zSeries Options790082
-Node: Code Gen Options790278
-Node: Environment Variables820072
-Node: Precompiled Headers828075
-Node: C Implementation834078
-Node: Translation implementation835748
-Node: Environment implementation836321
-Node: Identifiers implementation836870
-Node: Characters implementation837923
-Node: Integers implementation840729
-Node: Floating point implementation842553
-Node: Arrays and pointers implementation845480
-Ref: Arrays and pointers implementation-Footnote-1846916
-Node: Hints implementation847042
-Node: Structures unions enumerations and bit-fields implementation848506
-Node: Qualifiers implementation850491
-Node: Declarators implementation852263
-Node: Statements implementation852604
-Node: Preprocessing directives implementation852930
-Node: Library functions implementation855034
-Node: Architecture implementation855673
-Node: Locale-specific behavior implementation856375
-Node: C++ Implementation856680
-Node: Conditionally-supported behavior857963
-Node: Exception handling858472
-Node: C Extensions858880
-Node: Statement Exprs863870
-Node: Local Labels868330
-Node: Labels as Values871303
-Ref: Labels as Values-Footnote-1873704
-Node: Nested Functions873889
-Node: Constructing Calls877847
-Node: Typeof882564
-Node: Conditionals885873
-Node: __int128886762
-Node: Long Long887287
-Node: Complex888763
-Node: Floating Types891351
-Node: Half-Precision892479
-Node: Decimal Float894664
-Node: Hex Floats896520
-Node: Fixed-Point897557
-Node: Named Address Spaces900817
-Ref: AVR Named Address Spaces901498
-Node: Zero Length906706
-Node: Empty Structures909993
-Node: Variable Length910399
-Node: Variadic Macros913075
-Node: Escaped Newlines915453
-Node: Subscripting916292
-Node: Pointer Arith917017
-Node: Initializers917585
-Node: Compound Literals918081
-Node: Designated Inits921442
-Node: Case Ranges925074
-Node: Cast to Union925755
-Node: Mixed Declarations926845
-Node: Function Attributes927355
-Node: Attribute Syntax1013752
-Node: Function Prototypes1024142
-Node: C++ Comments1025922
-Node: Dollar Signs1026441
-Node: Character Escapes1026906
-Node: Variable Attributes1027200
-Ref: AVR Variable Attributes1040851
-Ref: MeP Variable Attributes1043513
-Ref: i386 Variable Attributes1045449
-Node: Type Attributes1051110
-Ref: MeP Type Attributes1064998
-Ref: i386 Type Attributes1065272
-Ref: PowerPC Type Attributes1065964
-Ref: SPU Type Attributes1066826
-Node: Alignment1067117
-Node: Inline1068487
-Node: Volatiles1073463
-Node: Extended Asm1076344
-Ref: Example of asm with clobbered asm reg1082248
-Ref: Extended asm with goto1091956
-Node: Constraints1099806
-Node: Simple Constraints1100890
-Node: Multi-Alternative1108200
-Node: Modifiers1109917
-Node: Machine Constraints1112930
-Node: Asm Labels1162378
-Node: Explicit Reg Vars1164054
-Node: Global Reg Vars1165652
-Node: Local Reg Vars1170148
-Node: Alternate Keywords1172564
-Node: Incomplete Enums1174050
-Node: Function Names1174806
-Node: Return Address1176967
-Node: Vector Extensions1180474
-Node: Offsetof1186657
-Node: __sync Builtins1187462
-Node: __atomic Builtins1192931
-Node: x86 specific memory model extensions for transactional memory1204565
-Node: Object Size Checking1205827
-Node: Other Builtins1211316
-Node: Target Builtins1240443
-Node: Alpha Built-in Functions1241645
-Node: ARM iWMMXt Built-in Functions1244654
-Node: ARM NEON Intrinsics1251634
-Node: ARM ACLE Intrinsics1469128
-Node: AVR Built-in Functions1470509
-Node: Blackfin Built-in Functions1473587
-Node: FR-V Built-in Functions1474204
-Node: Argument Types1475065
-Node: Directly-mapped Integer Functions1476817
-Node: Directly-mapped Media Functions1477899
-Node: Raw read/write Functions1486103
-Node: Other Built-in Functions1487009
-Node: X86 Built-in Functions1488193
-Node: X86 transactional memory intrinsics1547156
-Node: MIPS DSP Built-in Functions1549829
-Node: MIPS Paired-Single Support1562338
-Node: MIPS Loongson Built-in Functions1563837
-Node: Paired-Single Arithmetic1570352
-Node: Paired-Single Built-in Functions1571300
-Node: MIPS-3D Built-in Functions1573967
-Node: Other MIPS Built-in Functions1579345
-Node: picoChip Built-in Functions1579869
-Node: PowerPC Built-in Functions1581217
-Node: PowerPC AltiVec/VSX Built-in Functions1582632
-Node: RX Built-in Functions1692619
-Node: S/390 System z Built-in Functions1696634
-Node: SH Built-in Functions1701863
-Node: SPARC VIS Built-in Functions1703255
-Node: SPU Built-in Functions1708858
-Node: TI C6X Built-in Functions1710675
-Node: TILE-Gx Built-in Functions1711699
-Node: TILEPro Built-in Functions1712816
-Node: Target Format Checks1713883
-Node: Solaris Format Checks1714315
-Node: Darwin Format Checks1714741
-Node: Pragmas1715559
-Node: ARM Pragmas1716269
-Node: M32C Pragmas1716872
-Node: MeP Pragmas1717944
-Node: RS/6000 and PowerPC Pragmas1720012
-Node: Darwin Pragmas1720753
-Node: Solaris Pragmas1721820
-Node: Symbol-Renaming Pragmas1722984
-Node: Structure-Packing Pragmas1724540
-Node: Weak Pragmas1726185
-Node: Diagnostic Pragmas1726919
-Node: Visibility Pragmas1730028
-Node: Push/Pop Macro Pragmas1730780
-Node: Function Specific Option Pragmas1731753
-Node: Unnamed Fields1734013
-Node: Thread-Local1736240
-Node: C99 Thread-Local Edits1738345
-Node: C++98 Thread-Local Edits1740343
-Node: Binary constants1743788
-Node: C++ Extensions1744459
-Node: C++ Volatiles1746170
-Node: Restricted Pointers1748518
-Node: Vague Linkage1750109
-Node: C++ Interface1753732
-Ref: C++ Interface-Footnote-11758020
-Node: Template Instantiation1758158
-Node: Bound member functions1764744
-Node: C++ Attributes1766276
-Node: Function Multiversioning1768932
-Node: Namespace Association1770749
-Node: Type Traits1772129
-Node: Java Exceptions1778612
-Node: Deprecated Features1780002
-Node: Backwards Compatibility1782969
-Node: Objective-C1784316
-Node: GNU Objective-C runtime API1784923
-Node: Modern GNU Objective-C runtime API1785930
-Node: Traditional GNU Objective-C runtime API1788366
-Node: Executing code before main1789093
-Node: What you can and what you cannot do in +load1791831
-Node: Type encoding1794219
-Node: Legacy type encoding1799246
-Node: @encode1800336
-Node: Method signatures1800877
-Node: Garbage Collection1802869
-Node: Constant string objects1805558
-Node: compatibility_alias1808066
-Node: Exceptions1808787
-Node: Synchronization1811497
-Node: Fast enumeration1812681
-Node: Using fast enumeration1812993
-Node: c99-like fast enumeration syntax1814204
-Node: Fast enumeration details1814907
-Node: Fast enumeration protocol1817247
-Node: Messaging with the GNU Objective-C runtime1820399
-Node: Dynamically registering methods1821771
-Node: Forwarding hook1823462
-Node: Compatibility1826502
-Node: Gcov1833058
-Node: Gcov Intro1833591
-Node: Invoking Gcov1836309
-Node: Gcov and Optimization1849211
-Node: Gcov Data Files1852213
-Node: Cross-profiling1853608
-Node: Trouble1855462
-Node: Actual Bugs1856874
-Node: Interoperation1857321
-Node: Incompatibilities1864212
-Node: Fixed Headers1872364
-Node: Standard Libraries1874022
-Node: Disappointments1875394
-Node: C++ Misunderstandings1879753
-Node: Static Definitions1880564
-Node: Name lookup1881617
-Ref: Name lookup-Footnote-11886397
-Node: Temporaries1886586
-Node: Copy Assignment1888562
-Node: Non-bugs1890369
-Node: Warnings and Errors1900875
-Node: Bugs1902637
-Node: Bug Criteria1903201
-Node: Bug Reporting1905411
-Node: Service1905641
-Node: Contributing1906460
-Node: Funding1907200
-Node: GNU Project1909690
-Node: Copying1910336
-Node: GNU Free Documentation License1947844
-Node: Contributors1972961
-Node: Option Index2010359
-Node: Keyword Index2202391
+Node: Overall Options61542
+Node: Invoking G++75729
+Node: C Dialect Options77252
+Node: C++ Dialect Options93087
+Node: Objective-C and Objective-C++ Dialect Options121155
+Node: Language Independent Options131662
+Node: Warning Options133859
+Node: Debugging Options203003
+Node: Optimize Options260501
+Ref: Type-punning319159
+Node: Preprocessor Options397492
+Ref: Wtrigraphs402275
+Ref: dashMF407025
+Ref: fdollars-in-identifiers417906
+Node: Assembler Options428131
+Node: Link Options428822
+Ref: Link Options-Footnote-1440054
+Node: Directory Options440390
+Node: Spec Files446935
+Node: Target Options468279
+Node: Submodel Options468678
+Node: AArch64 Options470371
+Node: Adapteva Epiphany Options474276
+Node: ARM Options480224
+Node: AVR Options496504
+Node: Blackfin Options516638
+Node: C6X Options524656
+Node: CRIS Options526199
+Node: CR16 Options529938
+Node: Darwin Options530849
+Node: DEC Alpha Options538281
+Node: FR30 Options549897
+Node: FRV Options550461
+Node: GNU/Linux Options557225
+Node: H8/300 Options558485
+Node: HPPA Options559937
+Node: i386 and x86-64 Options569422
+Node: i386 and x86-64 Windows Options606528
+Node: IA-64 Options609381
+Node: LM32 Options617447
+Node: M32C Options617970
+Node: M32R/D Options619243
+Node: M680x0 Options622788
+Node: MCore Options636823
+Node: MeP Options638325
+Node: MicroBlaze Options642284
+Node: MIPS Options645086
+Node: MMIX Options673938
+Node: MN10300 Options676415
+Node: Moxie Options678956
+Node: PDP-11 Options679326
+Node: picoChip Options681018
+Node: PowerPC Options683156
+Node: RL78 Options683377
+Node: RS/6000 and PowerPC Options684038
+Node: RX Options718867
+Node: S/390 and zSeries Options726199
+Node: Score Options734746
+Node: SH Options735595
+Node: Solaris 2 Options754433
+Node: SPARC Options755663
+Node: SPU Options768548
+Node: System V Options773487
+Node: TILE-Gx Options774313
+Node: TILEPro Options775237
+Node: V850 Options775741
+Node: VAX Options782449
+Node: VMS Options782984
+Node: VxWorks Options783797
+Node: x86-64 Options784952
+Node: Xstormy16 Options785170
+Node: Xtensa Options785459
+Node: zSeries Options789770
+Node: Code Gen Options789966
+Node: Environment Variables819760
+Node: Precompiled Headers827763
+Node: C Implementation833766
+Node: Translation implementation835436
+Node: Environment implementation836009
+Node: Identifiers implementation836558
+Node: Characters implementation837611
+Node: Integers implementation840417
+Node: Floating point implementation842241
+Node: Arrays and pointers implementation845168
+Ref: Arrays and pointers implementation-Footnote-1846604
+Node: Hints implementation846730
+Node: Structures unions enumerations and bit-fields implementation848194
+Node: Qualifiers implementation850179
+Node: Declarators implementation851951
+Node: Statements implementation852292
+Node: Preprocessing directives implementation852618
+Node: Library functions implementation854722
+Node: Architecture implementation855361
+Node: Locale-specific behavior implementation856063
+Node: C++ Implementation856368
+Node: Conditionally-supported behavior857651
+Node: Exception handling858160
+Node: C Extensions858568
+Node: Statement Exprs863558
+Node: Local Labels868018
+Node: Labels as Values870991
+Ref: Labels as Values-Footnote-1873392
+Node: Nested Functions873577
+Node: Constructing Calls877535
+Node: Typeof882252
+Node: Conditionals885561
+Node: __int128886450
+Node: Long Long886975
+Node: Complex888451
+Node: Floating Types891039
+Node: Half-Precision892167
+Node: Decimal Float894352
+Node: Hex Floats896208
+Node: Fixed-Point897245
+Node: Named Address Spaces900505
+Ref: AVR Named Address Spaces901186
+Node: Zero Length906394
+Node: Empty Structures909681
+Node: Variable Length910087
+Node: Variadic Macros912763
+Node: Escaped Newlines915141
+Node: Subscripting915980
+Node: Pointer Arith916705
+Node: Initializers917273
+Node: Compound Literals917769
+Node: Designated Inits921130
+Node: Case Ranges924762
+Node: Cast to Union925443
+Node: Mixed Declarations926533
+Node: Function Attributes927043
+Node: Attribute Syntax1013440
+Node: Function Prototypes1023830
+Node: C++ Comments1025610
+Node: Dollar Signs1026129
+Node: Character Escapes1026594
+Node: Variable Attributes1026888
+Ref: AVR Variable Attributes1040539
+Ref: MeP Variable Attributes1043201
+Ref: i386 Variable Attributes1045137
+Node: Type Attributes1050798
+Ref: MeP Type Attributes1064686
+Ref: i386 Type Attributes1064960
+Ref: PowerPC Type Attributes1065652
+Ref: SPU Type Attributes1066514
+Node: Alignment1066805
+Node: Inline1068175
+Node: Volatiles1073151
+Node: Extended Asm1076032
+Ref: Example of asm with clobbered asm reg1081936
+Ref: Extended asm with goto1091644
+Node: Constraints1099494
+Node: Simple Constraints1100578
+Node: Multi-Alternative1107888
+Node: Modifiers1109605
+Node: Machine Constraints1112618
+Node: Asm Labels1162066
+Node: Explicit Reg Vars1163742
+Node: Global Reg Vars1165340
+Node: Local Reg Vars1169836
+Node: Alternate Keywords1172252
+Node: Incomplete Enums1173738
+Node: Function Names1174494
+Node: Return Address1176655
+Node: Vector Extensions1180162
+Node: Offsetof1186345
+Node: __sync Builtins1187150
+Node: __atomic Builtins1192619
+Node: x86 specific memory model extensions for transactional memory1204253
+Node: Object Size Checking1205515
+Node: Other Builtins1211004
+Node: Target Builtins1240131
+Node: Alpha Built-in Functions1241309
+Node: ARM iWMMXt Built-in Functions1244318
+Node: ARM NEON Intrinsics1251298
+Node: AVR Built-in Functions1459941
+Node: Blackfin Built-in Functions1463019
+Node: FR-V Built-in Functions1463636
+Node: Argument Types1464497
+Node: Directly-mapped Integer Functions1466249
+Node: Directly-mapped Media Functions1467331
+Node: Raw read/write Functions1475535
+Node: Other Built-in Functions1476441
+Node: X86 Built-in Functions1477625
+Node: X86 transactional memory intrinsics1536588
+Node: MIPS DSP Built-in Functions1539261
+Node: MIPS Paired-Single Support1551768
+Node: MIPS Loongson Built-in Functions1553267
+Node: Paired-Single Arithmetic1559782
+Node: Paired-Single Built-in Functions1560730
+Node: MIPS-3D Built-in Functions1563397
+Node: Other MIPS Built-in Functions1568775
+Node: picoChip Built-in Functions1569299
+Node: PowerPC Built-in Functions1570647
+Node: PowerPC AltiVec/VSX Built-in Functions1572062
+Node: RX Built-in Functions1682049
+Node: S/390 System z Built-in Functions1686064
+Node: SH Built-in Functions1691293
+Node: SPARC VIS Built-in Functions1692685
+Node: SPU Built-in Functions1698288
+Node: TI C6X Built-in Functions1700105
+Node: TILE-Gx Built-in Functions1701129
+Node: TILEPro Built-in Functions1702246
+Node: Target Format Checks1703313
+Node: Solaris Format Checks1703745
+Node: Darwin Format Checks1704171
+Node: Pragmas1704989
+Node: ARM Pragmas1705699
+Node: M32C Pragmas1706302
+Node: MeP Pragmas1707374
+Node: RS/6000 and PowerPC Pragmas1709442
+Node: Darwin Pragmas1710183
+Node: Solaris Pragmas1711250
+Node: Symbol-Renaming Pragmas1712414
+Node: Structure-Packing Pragmas1713970
+Node: Weak Pragmas1715615
+Node: Diagnostic Pragmas1716349
+Node: Visibility Pragmas1719458
+Node: Push/Pop Macro Pragmas1720210
+Node: Function Specific Option Pragmas1721183
+Node: Unnamed Fields1723443
+Node: Thread-Local1725670
+Node: C99 Thread-Local Edits1727775
+Node: C++98 Thread-Local Edits1729773
+Node: Binary constants1733218
+Node: C++ Extensions1733889
+Node: C++ Volatiles1735600
+Node: Restricted Pointers1737948
+Node: Vague Linkage1739539
+Node: C++ Interface1743162
+Ref: C++ Interface-Footnote-11747450
+Node: Template Instantiation1747588
+Node: Bound member functions1754174
+Node: C++ Attributes1755706
+Node: Function Multiversioning1758362
+Node: Namespace Association1760179
+Node: Type Traits1761559
+Node: Java Exceptions1768042
+Node: Deprecated Features1769432
+Node: Backwards Compatibility1772399
+Node: Objective-C1773746
+Node: GNU Objective-C runtime API1774353
+Node: Modern GNU Objective-C runtime API1775360
+Node: Traditional GNU Objective-C runtime API1777796
+Node: Executing code before main1778523
+Node: What you can and what you cannot do in +load1781261
+Node: Type encoding1783649
+Node: Legacy type encoding1788676
+Node: @encode1789766
+Node: Method signatures1790307
+Node: Garbage Collection1792299
+Node: Constant string objects1794988
+Node: compatibility_alias1797496
+Node: Exceptions1798217
+Node: Synchronization1800927
+Node: Fast enumeration1802111
+Node: Using fast enumeration1802423
+Node: c99-like fast enumeration syntax1803634
+Node: Fast enumeration details1804337
+Node: Fast enumeration protocol1806677
+Node: Messaging with the GNU Objective-C runtime1809829
+Node: Dynamically registering methods1811201
+Node: Forwarding hook1812892
+Node: Compatibility1815932
+Node: Gcov1822488
+Node: Gcov Intro1823021
+Node: Invoking Gcov1825739
+Node: Gcov and Optimization1838641
+Node: Gcov Data Files1841643
+Node: Cross-profiling1843038
+Node: Trouble1844892
+Node: Actual Bugs1846304
+Node: Interoperation1846751
+Node: Incompatibilities1853642
+Node: Fixed Headers1861794
+Node: Standard Libraries1863452
+Node: Disappointments1864824
+Node: C++ Misunderstandings1869183
+Node: Static Definitions1869994
+Node: Name lookup1871047
+Ref: Name lookup-Footnote-11875827
+Node: Temporaries1876016
+Node: Copy Assignment1877992
+Node: Non-bugs1879799
+Node: Warnings and Errors1890305
+Node: Bugs1892067
+Node: Bug Criteria1892631
+Node: Bug Reporting1894841
+Node: Service1895071
+Node: Contributing1895890
+Node: Funding1896630
+Node: GNU Project1899120
+Node: Copying1899766
+Node: GNU Free Documentation License1937274
+Node: Contributors1962391
+Node: Option Index1999789
+Node: Keyword Index2191894
 
 End Tag Table

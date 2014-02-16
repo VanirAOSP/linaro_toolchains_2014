@@ -1,7 +1,24 @@
-This is
-/home/zheche01/bzr/1310/build/builds/arm-linux-gnueabihf-linux/.build/arm-linux-gnueabihf/build/build-libc/manual/libc.info,
-produced by makeinfo version 4.13 from libc.texinfo.
+This is libc.info, produced by makeinfo version 5.1 from libc.texinfo.
 
+This file documents the GNU C Library.
+
+   This is 'The GNU C Library Reference Manual', for version
+2.18-2013.10 (crosstool-NG linaro-1.13.1+bzr2644 - Linaro GCC 2014.01).
+
+   Copyright (C) 1993-2013 Free Software Foundation, Inc.
+
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.3 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being "Free Software Needs Free Documentation" and
+"GNU Lesser General Public License", the Front-Cover texts being "A GNU
+Manual", and with the Back-Cover Texts as in (a) below.  A copy of the
+license is included in the section entitled "GNU Free Documentation
+License".
+
+   (a) The FSF's Back-Cover Text is: "You have the freedom to copy and
+modify this GNU manual.  Buying copies from the FSF supports it in
+developing GNU and promoting software freedom."
 INFO-DIR-SECTION Software libraries
 START-INFO-DIR-ENTRY
 * Libc: (libc).                 C library.
@@ -1686,750 +1703,732 @@ START-INFO-DIR-ENTRY
 * ynl: (libc)Special Functions.
 END-INFO-DIR-ENTRY
 
-   This file documents the GNU C Library.
-
-   This is `The GNU C Library Reference Manual', for version
-2.18-2013.10 (crosstool-NG linaro-1.13.1+bzr2615 - Linaro GCC 2013.09).
-
-   Copyright (C) 1993-2013 Free Software Foundation, Inc.
-
-   Permission is granted to copy, distribute and/or modify this document
-under the terms of the GNU Free Documentation License, Version
-1.3 or any later version published by the Free Software Foundation;
-with the Invariant Sections being "Free Software Needs Free
-Documentation" and "GNU Lesser General Public License", the Front-Cover
-texts being "A GNU Manual", and with the Back-Cover Texts as in (a)
-below.  A copy of the license is included in the section entitled "GNU
-Free Documentation License".
-
-   (a) The FSF's Back-Cover Text is: "You have the freedom to copy and
-modify this GNU manual.  Buying copies from the FSF supports it in
-developing GNU and promoting software freedom."
-
 
 Indirect:
-libc.info-1: 63976
-libc.info-2: 363358
-libc.info-3: 661710
-libc.info-4: 960035
-libc.info-5: 1257789
-libc.info-6: 1498587
-libc.info-7: 1791856
-libc.info-8: 2089137
-libc.info-9: 2385445
-libc.info-10: 2683358
-libc.info-11: 2886269
+libc.info-1: 63857
+libc.info-2: 367253
+libc.info-3: 680389
+libc.info-4: 964679
+libc.info-5: 1270345
+libc.info-6: 1564409
+libc.info-7: 1864585
+libc.info-8: 2166936
+libc.info-9: 2464777
+libc.info-10: 2763901
+libc.info-11: 3064789
+libc.info-12: 3369719
+libc.info-13: 3782865
 
 Tag Table:
 (Indirect)
-Node: Top63976
-Node: Introduction123277
-Node: Getting Started124628
-Node: Standards and Portability126092
-Node: ISO C127547
-Node: POSIX129075
-Node: Berkeley Unix130825
-Node: SVID131598
-Node: XPG132607
-Node: Using the Library133557
-Node: Header Files134285
-Node: Macro Definitions138246
-Node: Reserved Names140595
-Node: Feature Test Macros145318
-Node: Roadmap to the Manual156138
-Node: Error Reporting163466
-Node: Checking for Errors164385
-Node: Error Codes168631
-Node: Error Messages188364
-Node: Memory202697
-Node: Memory Concepts203555
-Node: Memory Allocation209237
-Node: Memory Allocation and C210143
-Node: Unconstrained Allocation213720
-Node: Basic Allocation215149
-Node: Malloc Examples216865
-Node: Freeing after Malloc218842
-Node: Changing Block Size220669
-Node: Allocating Cleared Space223288
-Node: Efficiency and Malloc224312
-Node: Aligned Memory Blocks225424
-Node: Malloc Tunable Parameters227653
-Node: Heap Consistency Checking229954
-Node: Hooks for Malloc235072
-Node: Statistics of Malloc241257
-Node: Summary of Malloc243235
-Node: Allocation Debugging245412
-Node: Tracing malloc246524
-Node: Using the Memory Debugger248392
-Node: Tips for the Memory Debugger250285
-Node: Interpreting the traces251601
-Node: Obstacks255139
-Node: Creating Obstacks256762
-Node: Preparing for Obstacks258677
-Node: Allocation in an Obstack261430
-Node: Freeing Obstack Objects263848
-Node: Obstack Functions265196
-Node: Growing Objects267439
-Node: Extra Fast Growing271705
-Node: Status of an Obstack275342
-Node: Obstacks Data Alignment276777
-Node: Obstack Chunks278665
-Node: Summary of Obstacks281036
-Node: Variable Size Automatic284466
-Node: Alloca Example286003
-Node: Advantages of Alloca287137
-Node: Disadvantages of Alloca289037
-Node: GNU C Variable-Size Arrays289793
-Node: Resizing the Data Segment290962
-Node: Locking Pages293085
-Node: Why Lock Pages293827
-Node: Locked Memory Details295466
-Node: Page Lock Functions297735
-Node: Character Handling303617
-Node: Classification of Characters305075
-Node: Case Conversion308981
-Node: Classification of Wide Characters310883
-Node: Using Wide Char Classes318645
-Node: Wide Character Case Conversion320961
-Node: String and Array Utilities323664
-Node: Representation of Strings325729
-Node: String/Array Conventions331258
-Node: String Length334197
-Node: Copying and Concatenation338013
-Node: String/Array Comparison363358
-Node: Collation Functions373509
-Node: Search Functions383770
-Node: Finding Tokens in a String396159
-Node: strfry407977
-Node: Trivial Encryption409012
-Node: Encode Binary Data410482
-Node: Argz and Envz Vectors415157
-Node: Argz Functions415764
-Node: Envz Functions422357
-Node: Character Set Handling425423
-Node: Extended Char Intro426576
-Node: Charset Function Overview439693
-Node: Restartable multibyte conversion440661
-Node: Selecting the Conversion442776
-Node: Keeping the state445159
-Node: Converting a Character448392
-Node: Converting Strings464403
-Node: Multibyte Conversion Example474522
-Node: Non-reentrant Conversion477473
-Node: Non-reentrant Character Conversion479162
-Node: Non-reentrant String Conversion483877
-Node: Shift State486876
-Node: Generic Charset Conversion489538
-Node: Generic Conversion Interface492730
-Node: iconv Examples502684
-Node: Other iconv Implementations507982
-Node: glibc iconv Implementation513381
-Node: Locales552925
-Node: Effects of Locale554595
-Node: Choosing Locale556564
-Node: Locale Categories557943
-Node: Setting the Locale560465
-Node: Standard Locales565335
-Node: Locale Information566629
-Node: The Lame Way to Locale Data568350
-Node: General Numeric570234
-Node: Currency Symbol573230
-Node: Sign of Money Amount577431
-Node: The Elegant and Fast Way579574
-Node: Formatting Numbers591720
-Node: Yes-or-No Questions601150
-Node: Message Translation603195
-Node: Message catalogs a la X/Open605237
-Node: The catgets Functions606540
-Node: The message catalog files615576
-Node: The gencat program622324
-Node: Common Usage625467
-Node: The Uniforum approach632631
-Node: Message catalogs with gettext634130
-Node: Translation with gettext635174
-Node: Locating gettext catalog641495
-Node: Advanced gettext functions648373
-Ref: Advanced gettext functions-Footnote-1659115
-Node: Charset conversion in gettext659207
-Node: GUI program problems661710
-Node: Using gettextized software667257
-Node: Helper programs for gettext675586
-Node: Searching and Sorting677363
-Node: Comparison Functions678279
-Node: Array Search Function679496
-Node: Array Sort Function682859
-Node: Search/Sort Example684998
-Node: Hash Search Function688437
-Node: Tree Search Function696131
-Node: Pattern Matching703136
-Node: Wildcard Matching703941
-Node: Globbing707887
-Node: Calling Glob708758
-Node: Flags for Globbing719193
-Node: More Flags for Globbing722828
-Node: Regular Expressions728973
-Node: POSIX Regexp Compilation729967
-Node: Flags for POSIX Regexps734113
-Node: Matching POSIX Regexps735031
-Node: Regexp Subexpressions737251
-Node: Subexpression Complications739318
-Node: Regexp Cleanup741694
-Node: Word Expansion744057
-Node: Expansion Stages745419
-Node: Calling Wordexp746923
-Node: Flags for Wordexp750900
-Node: Wordexp Example752864
-Node: Tilde Expansion754666
-Node: Variable Substitution755749
-Node: I/O Overview759886
-Node: I/O Concepts761403
-Node: Streams and File Descriptors762559
-Node: File Position765659
-Node: File Names767804
-Node: Directories768699
-Node: File Name Resolution770447
-Node: File Name Errors773381
-Node: File Name Portability774934
-Node: I/O on Streams776899
-Node: Streams779012
-Node: Standard Streams780363
-Node: Opening Streams782165
-Node: Closing Streams792663
-Node: Streams and Threads795224
-Node: Streams and I18N804256
-Node: Simple Output810427
-Node: Character Input815805
-Node: Line Input821045
-Node: Unreading827743
-Node: Unreading Idea828561
-Node: How Unread829379
-Node: Block Input/Output832153
-Node: Formatted Output834948
-Node: Formatted Output Basics836584
-Node: Output Conversion Syntax839084
-Node: Table of Output Conversions844198
-Node: Integer Conversions847217
-Node: Floating-Point Conversions852771
-Node: Other Output Conversions858616
-Node: Formatted Output Functions862440
-Node: Dynamic Output868506
-Node: Variable Arguments Output870398
-Node: Parsing a Template String876550
-Node: Example of Parsing880398
-Node: Customizing Printf882518
-Node: Registering New Conversions884236
-Node: Conversion Specifier Options886425
-Node: Defining the Output Handler890278
-Node: Printf Extension Example892736
-Node: Predefined Printf Handlers895099
-Node: Formatted Input898020
-Node: Formatted Input Basics899108
-Node: Input Conversion Syntax901816
-Node: Table of Input Conversions905197
-Node: Numeric Input Conversions909380
-Node: String Input Conversions913848
-Node: Dynamic String Input918981
-Node: Other Input Conversions920160
-Node: Formatted Input Functions921818
-Node: Variable Arguments Input924693
-Node: EOF and Errors927072
-Node: Error Recovery930011
-Node: Binary Streams931808
-Node: File Positioning934343
-Node: Portable Positioning941392
-Node: Stream Buffering947097
-Node: Buffering Concepts948705
-Node: Flushing Buffers950087
-Node: Controlling Buffering953218
-Node: Other Kinds of Streams958851
-Node: String Streams960035
-Node: Custom Streams964268
-Node: Streams and Cookies964941
-Node: Hook Functions968032
-Node: Formatted Messages970336
-Node: Printing Formatted Messages971010
-Node: Adding Severity Classes977465
-Node: Example979086
-Node: Low-Level I/O982299
-Node: Opening and Closing Files985310
-Node: I/O Primitives993334
-Node: File Position Primitive1007959
-Node: Descriptors and Streams1015275
-Node: Stream/Descriptor Precautions1017988
-Node: Linked Channels1019201
-Node: Independent Channels1020473
-Node: Cleaning Streams1022387
-Node: Scatter-Gather1024224
-Node: Memory-mapped I/O1026824
-Node: Waiting for I/O1038311
-Node: Synchronizing I/O1046493
-Node: Asynchronous I/O1049899
-Node: Asynchronous Reads/Writes1057970
-Node: Status of AIO Operations1070469
-Node: Synchronizing AIO Operations1074047
-Node: Cancel AIO Operations1080460
-Node: Configuration of AIO1083966
-Node: Control Operations1086175
-Node: Duplicating Descriptors1088878
-Node: Descriptor Flags1093146
-Node: File Status Flags1096559
-Node: Access Modes1098023
-Node: Open-time Flags1100349
-Node: Operating Modes1105125
-Node: Getting File Status Flags1107910
-Node: File Locks1110527
-Node: Interrupt Input1119452
-Node: IOCTLs1121893
-Ref: IOCTLs-Footnote-11123880
-Node: File System Interface1123977
-Node: Working Directory1125509
-Node: Accessing Directories1130537
-Node: Directory Entries1132198
-Node: Opening a Directory1135747
-Node: Reading/Closing Directory1139768
-Node: Simple Directory Lister1144276
-Node: Random Access Directory1145268
-Node: Scanning Directory Content1146790
-Node: Simple Directory Lister Mark II1151306
-Node: Working with Directory Trees1152413
-Node: Hard Links1164747
-Node: Symbolic Links1167582
-Node: Deleting Files1175088
-Node: Renaming Files1178056
-Node: Creating Directories1181684
-Node: File Attributes1183446
-Node: Attribute Meanings1184977
-Node: Reading Attributes1194186
-Node: Testing File Type1198273
-Node: File Owner1202453
-Node: Permission Bits1206122
-Node: Access Permission1211453
-Node: Setting Permissions1212606
-Node: Testing File Access1217847
-Node: File Times1221527
-Node: File Size1227972
-Node: Making Special Files1234409
-Node: Temporary Files1236104
-Node: Pipes and FIFOs1245413
-Node: Creating a Pipe1246999
-Node: Pipe to a Subprocess1250270
-Node: FIFO Special Files1253272
-Node: Pipe Atomicity1254854
-Node: Sockets1255744
-Node: Socket Concepts1257789
-Node: Communication Styles1262036
-Node: Socket Addresses1263900
-Node: Address Formats1265943
-Node: Setting Address1269156
-Node: Reading Address1270890
-Node: Interface Naming1272663
-Node: Local Namespace1275083
-Node: Local Namespace Concepts1275750
-Node: Local Namespace Details1277278
-Node: Local Socket Example1279242
-Node: Internet Namespace1280720
-Node: Internet Address Formats1282954
-Node: Host Addresses1285120
-Node: Abstract Host Addresses1286280
-Node: Host Address Data Type1290802
-Node: Host Address Functions1293949
-Node: Host Names1298341
-Node: Ports1307622
-Node: Services Database1309669
-Node: Byte Order1312511
-Node: Protocols Database1314842
-Node: Inet Example1318406
-Node: Misc Namespaces1320407
-Node: Open/Close Sockets1321160
-Node: Creating a Socket1321665
-Node: Closing a Socket1323359
-Node: Socket Pairs1324897
-Node: Connections1326917
-Node: Connecting1328018
-Node: Listening1330857
-Node: Accepting Connections1332933
-Node: Who is Connected1336076
-Node: Transferring Data1337190
-Node: Sending Data1338306
-Node: Receiving Data1340861
-Node: Socket Data Options1342628
-Node: Byte Stream Example1343509
-Node: Server Example1345532
-Node: Out-of-Band Data1349520
-Node: Datagrams1355387
-Node: Sending Datagrams1356425
-Node: Receiving Datagrams1358374
-Node: Datagram Example1360458
-Node: Example Receiver1362456
-Node: Inetd1364994
-Node: Inetd Servers1365812
-Node: Configuring Inetd1367067
-Node: Socket Options1369749
-Node: Socket Option Functions1370466
-Node: Socket-Level Options1372044
-Node: Networks Database1375691
-Node: Low-Level Terminal Interface1378571
-Node: Is It a Terminal1380043
-Node: I/O Queues1381956
-Node: Canonical or Not1383920
-Node: Terminal Modes1385773
-Node: Mode Data Types1387349
-Node: Mode Functions1389192
-Node: Setting Modes1393139
-Node: Input Modes1395144
-Node: Output Modes1400450
-Node: Control Modes1402178
-Node: Local Modes1406300
-Node: Line Speed1412710
-Node: Special Characters1416906
-Node: Editing Characters1418831
-Node: Signal Characters1423209
-Node: Start/Stop Characters1426096
-Node: Other Special1427983
-Node: Noncanonical Input1430004
-Node: BSD Terminal Modes1434836
-Node: Line Control1436323
-Node: Noncanon Example1441052
-Node: Pseudo-Terminals1443232
-Node: Allocation1444151
-Node: Pseudo-Terminal Pairs1448919
-Node: Syslog1451472
-Node: Overview of Syslog1452424
-Node: Submitting Syslog Messages1456619
-Node: openlog1457444
-Node: syslog; vsyslog1462431
-Node: closelog1466662
-Node: setlogmask1467815
-Node: Syslog Example1469670
-Node: Mathematics1470324
-Node: Mathematical Constants1472051
-Node: Trig Functions1474066
-Node: Inverse Trig Functions1477829
-Node: Exponents and Logarithms1481659
-Node: Hyperbolic Functions1489923
-Node: Special Functions1494006
-Node: Errors in Math Functions1498587
-Node: Pseudo-Random Numbers1581857
-Node: ISO Random1584107
-Node: BSD Random1586058
-Node: SVID Random1590653
-Node: FP Function Optimizations1603978
-Node: Arithmetic1606072
-Node: Integers1607354
-Node: Integer Division1610383
-Node: Floating Point Numbers1614085
-Node: Floating Point Classes1615833
-Node: Floating Point Errors1619871
-Node: FP Exceptions1620378
-Node: Infinity and NaN1624750
-Node: Status bit operations1627702
-Node: Math Error Reporting1631855
-Node: Rounding1634195
-Node: Control Functions1637659
-Node: Arithmetic Functions1642484
-Node: Absolute Value1643359
-Node: Normalization Functions1645440
-Node: Rounding Functions1648756
-Node: Remainder Functions1653215
-Node: FP Bit Twiddling1655378
-Node: FP Comparison Functions1658514
-Node: Misc FP Arithmetic1661242
-Node: Complex Numbers1664007
-Node: Operations on Complex1665721
-Node: Parsing of Numbers1668090
-Node: Parsing of Integers1668791
-Node: Parsing of Floats1679401
-Node: System V Number Conversion1684587
-Node: Date and Time1690206
-Node: Time Basics1690939
-Node: Elapsed Time1692840
-Node: Processor And CPU Time1696389
-Node: CPU Time1698284
-Node: Processor Time1699988
-Node: Calendar Time1702562
-Node: Simple Calendar Time1704508
-Node: High-Resolution Calendar1706934
-Node: Broken-down Time1712306
-Node: High Accuracy Clock1720286
-Node: Formatting Calendar Time1727734
-Node: Parsing Date and Time1743696
-Node: Low-Level Time String Parsing1744551
-Node: General Time String Parsing1758150
-Node: TZ Variable1765296
-Node: Time Zone Functions1771356
-Node: Time Functions Example1774214
-Node: Setting an Alarm1775299
-Node: Sleeping1781084
-Node: Resource Usage And Limitation1785693
-Node: Resource Usage1786373
-Node: Limits on Resources1791856
-Node: Priority1801107
-Node: Absolute Priority1803547
-Node: Realtime Scheduling1808664
-Node: Basic Scheduling Functions1812122
-Node: Traditional Scheduling1820058
-Node: Traditional Scheduling Intro1820642
-Node: Traditional Scheduling Functions1824921
-Node: CPU Affinity1828828
-Node: Memory Resources1834858
-Node: Memory Subsystem1835716
-Node: Query Memory Parameters1838109
-Node: Processor Resources1841770
-Node: Non-Local Exits1843896
-Node: Non-Local Intro1844609
-Node: Non-Local Details1848323
-Node: Non-Local Exits and Signals1851411
-Node: System V contexts1852925
-Node: Signal Handling1865886
-Node: Concepts of Signals1867923
-Node: Kinds of Signals1868494
-Node: Signal Generation1869900
-Node: Delivery of Signal1872178
-Node: Standard Signals1875043
-Node: Program Error Signals1876644
-Node: Termination Signals1884134
-Node: Alarm Signals1887993
-Node: Asynchronous I/O Signals1889248
-Node: Job Control Signals1890449
-Node: Operation Error Signals1895081
-Node: Miscellaneous Signals1897037
-Node: Signal Messages1898748
-Node: Signal Actions1900645
-Node: Basic Signal Handling1901599
-Node: Advanced Signal Handling1907669
-Node: Signal and Sigaction1910658
-Node: Sigaction Function Example1912418
-Node: Flags for Sigaction1914715
-Node: Initial Signal Actions1917107
-Node: Defining Handlers1918489
-Node: Handler Returns1920681
-Node: Termination in Handler1922708
-Node: Longjmp in Handler1924142
-Node: Signals in Handler1926238
-Node: Merged Signals1928369
-Node: Nonreentrancy1934038
-Node: Atomic Data Access1939455
-Node: Non-atomic Example1940512
-Node: Atomic Types1942298
-Node: Atomic Usage1943287
-Node: Interrupted Primitives1944772
-Node: Generating Signals1948252
-Node: Signaling Yourself1948852
-Node: Signaling Another Process1950820
-Node: Permission for kill1954211
-Node: Kill Example1956018
-Node: Blocking Signals1958327
-Node: Why Block1960106
-Node: Signal Sets1961653
-Node: Process Signal Mask1964700
-Node: Testing for Delivery1968030
-Node: Blocking for Handler1969274
-Node: Checking for Pending Signals1971689
-Node: Remembering a Signal1973695
-Node: Waiting for a Signal1977240
-Node: Using Pause1977792
-Node: Pause Problems1979433
-Node: Sigsuspend1981158
-Node: Signal Stack1983861
-Node: BSD Signal Handling1989188
-Node: BSD Handler1990473
-Node: Blocking in BSD1992925
-Node: Program Basics1994396
-Node: Program Arguments1996464
-Node: Argument Syntax1998470
-Node: Parsing Program Arguments2001152
-Node: Getopt2002267
-Node: Using Getopt2002912
-Node: Example of Getopt2007064
-Node: Getopt Long Options2009909
-Node: Getopt Long Option Example2015165
-Node: Argp2018189
-Node: Argp Global Variables2021552
-Node: Argp Parsers2023599
-Node: Argp Option Vectors2026985
-Node: Argp Option Flags2030212
-Node: Argp Parser Functions2032273
-Node: Argp Special Keys2034977
-Node: Argp Parsing State2040278
-Node: Argp Helper Functions2043857
-Node: Argp Children2046908
-Node: Argp Flags2049002
-Node: Argp Help Filtering2051291
-Node: Argp Help Filter Keys2052538
-Node: Argp Help2053466
-Node: Argp Help Flags2054658
-Node: Argp Examples2057021
-Node: Argp Example 12057504
-Node: Argp Example 22058278
-Node: Argp Example 32061161
-Node: Argp Example 42068046
-Node: Argp User Customization2075608
-Node: Suboptions2077349
-Node: Suboptions Example2079303
-Node: Environment Variables2081450
-Node: Environment Access2083326
-Node: Standard Environment2089137
-Node: Auxiliary Vector2093321
-Node: System Calls2094684
-Node: Program Termination2098175
-Node: Normal Termination2099391
-Node: Exit Status2100800
-Node: Cleanups on Exit2104174
-Node: Aborting a Program2105995
-Node: Termination Internals2106908
-Node: Processes2109103
-Node: Running a Command2111127
-Node: Process Creation Concepts2113162
-Node: Process Identification2115178
-Node: Creating a Process2116116
-Node: Executing a File2119747
-Node: Process Completion2126906
-Node: Process Completion Status2133188
-Node: BSD Wait Functions2134847
-Node: Process Creation Example2136728
-Node: Job Control2138976
-Node: Concepts of Job Control2140257
-Node: Job Control is Optional2143618
-Node: Controlling Terminal2144671
-Node: Access to the Terminal2145586
-Node: Orphaned Process Groups2147196
-Node: Implementing a Shell2148194
-Node: Data Structures2149084
-Node: Initializing the Shell2151718
-Node: Launching Jobs2155410
-Node: Foreground and Background2162829
-Node: Stopped and Terminated Jobs2165929
-Node: Continuing Stopped Jobs2171064
-Node: Missing Pieces2172687
-Node: Functions for Job Control2174322
-Node: Identifying the Terminal2174809
-Node: Process Group Functions2176399
-Node: Terminal Access Functions2181430
-Node: Name Service Switch2184923
-Node: NSS Basics2186221
-Node: NSS Configuration File2187821
-Node: Services in the NSS configuration2189511
-Node: Actions in the NSS configuration2190810
-Node: Notes on NSS Configuration File2193982
-Node: NSS Module Internals2195870
-Node: NSS Module Names2196573
-Ref: NSS Module Names-Footnote-12198628
-Ref: NSS Module Names-Footnote-22198782
-Node: NSS Modules Interface2198960
-Node: Extending NSS2203663
-Node: Adding another Service to NSS2204601
-Node: NSS Module Function Internals2206843
-Node: Users and Groups2211758
-Node: User and Group IDs2214372
-Node: Process Persona2215287
-Node: Why Change Persona2216979
-Node: How Change Persona2218867
-Node: Reading Persona2220761
-Node: Setting User ID2223051
-Node: Setting Groups2225928
-Node: Enable/Disable Setuid2231616
-Node: Setuid Program Example2233658
-Node: Tips for Setuid2237054
-Node: Who Logged In2239578
-Node: User Accounting Database2241972
-Node: Manipulating the Database2243165
-Node: XPG Functions2255523
-Node: Logging In and Out2260008
-Node: User Database2262143
-Node: User Data Structure2262814
-Node: Lookup User2264087
-Node: Scanning All Users2266668
-Node: Writing a User Entry2269644
-Node: Group Database2270663
-Node: Group Data Structure2271248
-Node: Lookup Group2272027
-Node: Scanning All Groups2274545
-Node: Database Example2277594
-Node: Netgroup Database2279771
-Node: Netgroup Data2280194
-Node: Lookup Netgroup2281735
-Node: Netgroup Membership2285173
-Node: System Management2286517
-Node: Host Identification2287451
-Node: Platform Type2293958
-Node: Filesystem Handling2297274
-Node: Mount Information2298781
-Node: fstab2300969
-Node: mtab2306811
-Node: Other Mount Information2316170
-Node: Mount-Unmount-Remount2316699
-Node: System Parameters2326701
-Node: System Configuration2332254
-Node: General Limits2333828
-Node: System Options2337482
-Node: Version Supported2340828
-Node: Sysconf2342435
-Node: Sysconf Definition2343078
-Node: Constants for Sysconf2343765
-Node: Examples of Sysconf2356752
-Node: Minimums2357756
-Node: Limits for Files2360474
-Node: Options for Files2363585
-Node: File Minimums2365888
-Node: Pathconf2368115
-Node: Utility Limits2371429
-Node: Utility Minimums2373376
-Node: String Parameters2375140
-Node: Cryptographic Functions2379040
-Node: Legal Problems2381016
-Node: getpass2383291
-Node: crypt2385445
-Node: DES Encryption2390177
-Node: Debugging Support2396394
-Node: Backtraces2397039
-Node: POSIX Threads2401804
-Node: Thread-specific Data2402216
-Node: Non-POSIX Extensions2403557
-Node: Default Thread Attributes2403994
-Node: Language Features2405055
-Node: Consistency Checking2406000
-Node: Variadic Functions2410553
-Node: Why Variadic2411630
-Node: How Variadic2413603
-Node: Variadic Prototypes2414835
-Node: Receiving Arguments2415989
-Node: How Many Arguments2418673
-Node: Calling Variadics2420348
-Node: Argument Macros2422461
-Node: Variadic Example2425457
-Node: Null Pointer Constant2426584
-Node: Important Data Types2427673
-Node: Data Type Measurements2429525
-Node: Width of Type2430387
-Node: Range of Type2431301
-Node: Floating Type Macros2434864
-Node: Floating Point Concepts2436131
-Node: Floating Point Parameters2439876
-Node: IEEE Floating Point2446830
-Node: Structure Measurement2448596
-Node: Library Summary2449299
-Node: Installation2654684
-Node: Configuring and compiling2655819
-Node: Running make install2667656
-Node: Tools for Compilation2671507
-Node: Linux2674109
-Node: Reporting Bugs2676538
-Node: Maintenance2678884
-Node: Source Layout2679285
-Node: Adding Platform-specific2683358
-Node: Porting2686396
-Node: Hierarchy Conventions2694128
-Node: Porting to Unix2699185
-Node: Platform2701209
-Node: PowerPC2701520
-Node: Contributors2704679
-Node: Free Manuals2716106
-Node: Copying2721045
-Node: Documentation License2749217
-Node: Concept Index2774375
-Node: Type Index2873920
-Node: Function Index2886269
-Node: Variable Index3014759
-Node: File Index3121682
+Node: Top63857
+Node: Introduction123147
+Node: Getting Started124496
+Node: Standards and Portability125961
+Node: ISO C127416
+Node: POSIX128943
+Node: Berkeley Unix130693
+Node: SVID131466
+Node: XPG132473
+Node: Using the Library133422
+Node: Header Files134150
+Node: Macro Definitions138099
+Node: Reserved Names140448
+Node: Feature Test Macros145152
+Node: Roadmap to the Manual155959
+Node: Error Reporting163287
+Node: Checking for Errors164204
+Node: Error Codes168448
+Node: Error Messages188176
+Node: Memory202510
+Node: Memory Concepts203368
+Node: Memory Allocation209046
+Node: Memory Allocation and C209952
+Node: Unconstrained Allocation213523
+Node: Basic Allocation214952
+Node: Malloc Examples216666
+Node: Freeing after Malloc218643
+Node: Changing Block Size220468
+Node: Allocating Cleared Space223085
+Node: Efficiency and Malloc224107
+Node: Aligned Memory Blocks225219
+Node: Malloc Tunable Parameters227443
+Node: Heap Consistency Checking229733
+Node: Hooks for Malloc234850
+Node: Statistics of Malloc241034
+Node: Summary of Malloc243019
+Node: Allocation Debugging245197
+Node: Tracing malloc246309
+Node: Using the Memory Debugger248177
+Node: Tips for the Memory Debugger250070
+Node: Interpreting the traces251387
+Node: Obstacks254925
+Node: Creating Obstacks256548
+Node: Preparing for Obstacks258461
+Node: Allocation in an Obstack261212
+Node: Freeing Obstack Objects263630
+Node: Obstack Functions264978
+Node: Growing Objects267221
+Node: Extra Fast Growing271486
+Node: Status of an Obstack275122
+Node: Obstacks Data Alignment276557
+Node: Obstack Chunks278445
+Node: Summary of Obstacks280816
+Node: Variable Size Automatic284246
+Node: Alloca Example285781
+Node: Advantages of Alloca286915
+Node: Disadvantages of Alloca288815
+Node: GNU C Variable-Size Arrays289571
+Node: Resizing the Data Segment290740
+Node: Locking Pages292863
+Node: Why Lock Pages293605
+Node: Locked Memory Details295240
+Node: Page Lock Functions297508
+Node: Character Handling367253
+Node: Classification of Characters368709
+Node: Case Conversion372619
+Node: Classification of Wide Characters374518
+Node: Using Wide Char Classes382282
+Node: Wide Character Case Conversion384598
+Node: String and Array Utilities387302
+Node: Representation of Strings389367
+Node: String/Array Conventions394894
+Node: String Length397832
+Node: Copying and Concatenation401646
+Node: String/Array Comparison426975
+Node: Collation Functions437124
+Node: Search Functions447379
+Node: Finding Tokens in a String459760
+Node: strfry471575
+Node: Trivial Encryption472609
+Node: Encode Binary Data474074
+Node: Argz and Envz Vectors478749
+Node: Argz Functions479356
+Node: Envz Functions485949
+Node: Character Set Handling489016
+Node: Extended Char Intro490169
+Node: Charset Function Overview503285
+Node: Restartable multibyte conversion504253
+Node: Selecting the Conversion506367
+Node: Keeping the state508748
+Node: Converting a Character511982
+Node: Converting Strings527989
+Node: Multibyte Conversion Example538108
+Node: Non-reentrant Conversion541059
+Node: Non-reentrant Character Conversion542748
+Node: Non-reentrant String Conversion547461
+Node: Shift State550459
+Node: Generic Charset Conversion553121
+Node: Generic Conversion Interface556313
+Node: iconv Examples566269
+Node: Other iconv Implementations571567
+Node: glibc iconv Implementation576967
+Node: Locales680389
+Node: Effects of Locale682060
+Node: Choosing Locale684029
+Node: Locale Categories685408
+Node: Setting the Locale687928
+Node: Standard Locales692798
+Node: Locale Information694092
+Node: The Lame Way to Locale Data695814
+Node: General Numeric697696
+Node: Currency Symbol700688
+Node: Sign of Money Amount704889
+Node: The Elegant and Fast Way707038
+Node: Formatting Numbers719206
+Node: Yes-or-No Questions728638
+Node: Message Translation730681
+Node: Message catalogs a la X/Open732721
+Node: The catgets Functions734024
+Node: The message catalog files743069
+Node: The gencat program749808
+Node: Common Usage752948
+Node: The Uniforum approach760111
+Node: Message catalogs with gettext761610
+Node: Translation with gettext762654
+Node: Locating gettext catalog768976
+Node: Advanced gettext functions775853
+Ref: Advanced gettext functions-Footnote-1786593
+Node: Charset conversion in gettext786685
+Node: GUI program problems789188
+Node: Using gettextized software794735
+Node: Helper programs for gettext803056
+Node: Searching and Sorting804832
+Node: Comparison Functions805748
+Node: Array Search Function806965
+Node: Array Sort Function810321
+Node: Search/Sort Example812453
+Node: Hash Search Function815892
+Node: Tree Search Function823586
+Node: Pattern Matching830589
+Node: Wildcard Matching831394
+Node: Globbing835345
+Node: Calling Glob836216
+Node: Flags for Globbing846646
+Node: More Flags for Globbing850283
+Node: Regular Expressions856427
+Node: POSIX Regexp Compilation857421
+Node: Flags for POSIX Regexps861561
+Node: Matching POSIX Regexps862479
+Node: Regexp Subexpressions864698
+Node: Subexpression Complications866767
+Node: Regexp Cleanup869140
+Node: Word Expansion871502
+Node: Expansion Stages872864
+Node: Calling Wordexp874368
+Node: Flags for Wordexp878352
+Node: Wordexp Example880316
+Node: Tilde Expansion882118
+Node: Variable Substitution883201
+Node: I/O Overview887337
+Node: I/O Concepts888854
+Node: Streams and File Descriptors890008
+Node: File Position893108
+Node: File Names895247
+Node: Directories896140
+Node: File Name Resolution897888
+Node: File Name Errors964679
+Node: File Name Portability966232
+Node: I/O on Streams968198
+Node: Streams970311
+Node: Standard Streams971654
+Node: Opening Streams973445
+Node: Closing Streams983950
+Node: Streams and Threads986511
+Node: Streams and I18N995548
+Node: Simple Output1001720
+Node: Character Input1007097
+Node: Line Input1012335
+Node: Unreading1019031
+Node: Unreading Idea1019847
+Node: How Unread1020664
+Node: Block Input/Output1023438
+Node: Formatted Output1026229
+Node: Formatted Output Basics1027865
+Node: Output Conversion Syntax1030365
+Node: Table of Output Conversions1035471
+Node: Integer Conversions1038490
+Node: Floating-Point Conversions1044034
+Node: Other Output Conversions1049879
+Node: Formatted Output Functions1053702
+Node: Dynamic Output1059768
+Node: Variable Arguments Output1061661
+Node: Parsing a Template String1067796
+Node: Example of Parsing1071644
+Node: Customizing Printf1073764
+Node: Registering New Conversions1075482
+Node: Conversion Specifier Options1077669
+Node: Defining the Output Handler1081535
+Node: Printf Extension Example1083993
+Node: Predefined Printf Handlers1086356
+Node: Formatted Input1089277
+Node: Formatted Input Basics1090365
+Node: Input Conversion Syntax1093063
+Node: Table of Input Conversions1096439
+Node: Numeric Input Conversions1100621
+Node: String Input Conversions1105089
+Node: Dynamic String Input1110222
+Node: Other Input Conversions1111401
+Node: Formatted Input Functions1113060
+Node: Variable Arguments Input1115933
+Node: EOF and Errors1118312
+Node: Error Recovery1121246
+Node: Binary Streams1123043
+Node: File Positioning1125576
+Node: Portable Positioning1132616
+Node: Stream Buffering1138320
+Node: Buffering Concepts1139928
+Node: Flushing Buffers1141305
+Node: Controlling Buffering1144434
+Node: Other Kinds of Streams1150064
+Node: String Streams1151247
+Node: Custom Streams1155479
+Node: Streams and Cookies1156152
+Node: Hook Functions1159244
+Node: Formatted Messages1161548
+Node: Printing Formatted Messages1162222
+Node: Adding Severity Classes1168672
+Node: Example1170293
+Node: Low-Level I/O1173506
+Node: Opening and Closing Files1176517
+Node: I/O Primitives1184548
+Node: File Position Primitive1199172
+Node: Descriptors and Streams1270345
+Node: Stream/Descriptor Precautions1273046
+Node: Linked Channels1274259
+Node: Independent Channels1275531
+Node: Cleaning Streams1277445
+Node: Scatter-Gather1279283
+Node: Memory-mapped I/O1281881
+Node: Waiting for I/O1293404
+Node: Synchronizing I/O1301582
+Node: Asynchronous I/O1304987
+Node: Asynchronous Reads/Writes1313063
+Node: Status of AIO Operations1325543
+Node: Synchronizing AIO Operations1329121
+Node: Cancel AIO Operations1335526
+Node: Configuration of AIO1339032
+Node: Control Operations1341242
+Node: Duplicating Descriptors1343953
+Node: Descriptor Flags1348222
+Node: File Status Flags1351634
+Node: Access Modes1353096
+Node: Open-time Flags1355422
+Node: Operating Modes1360188
+Node: Getting File Status Flags1362976
+Node: File Locks1365594
+Node: Interrupt Input1374531
+Node: IOCTLs1376975
+Ref: IOCTLs-Footnote-11378963
+Node: File System Interface1379060
+Node: Working Directory1380590
+Node: Accessing Directories1385622
+Node: Directory Entries1387283
+Node: Opening a Directory1390832
+Node: Reading/Closing Directory1394861
+Node: Simple Directory Lister1399365
+Node: Random Access Directory1400357
+Node: Scanning Directory Content1401879
+Node: Simple Directory Lister Mark II1406396
+Node: Working with Directory Trees1407503
+Node: Hard Links1419844
+Node: Symbolic Links1422676
+Node: Deleting Files1430193
+Node: Renaming Files1433164
+Node: Creating Directories1436805
+Node: File Attributes1438570
+Node: Attribute Meanings1440101
+Node: Reading Attributes1449336
+Node: Testing File Type1453425
+Node: File Owner1457601
+Node: Permission Bits1461276
+Node: Access Permission1466607
+Node: Setting Permissions1467760
+Node: Testing File Access1473007
+Node: File Times1476687
+Node: File Size1483109
+Node: Making Special Files1489555
+Node: Temporary Files1491252
+Node: Pipes and FIFOs1564410
+Node: Creating a Pipe1565996
+Node: Pipe to a Subprocess1569267
+Node: FIFO Special Files1572269
+Node: Pipe Atomicity1573851
+Node: Sockets1574741
+Node: Socket Concepts1576785
+Node: Communication Styles1581031
+Node: Socket Addresses1582893
+Node: Address Formats1584936
+Node: Setting Address1588152
+Node: Reading Address1589892
+Node: Interface Naming1591668
+Node: Local Namespace1594089
+Node: Local Namespace Concepts1594756
+Node: Local Namespace Details1596284
+Node: Local Socket Example1598247
+Node: Internet Namespace1599725
+Node: Internet Address Formats1601957
+Node: Host Addresses1604127
+Node: Abstract Host Addresses1605287
+Node: Host Address Data Type1609813
+Node: Host Address Functions1612959
+Node: Host Names1617355
+Node: Ports1626640
+Node: Services Database1628687
+Node: Byte Order1631532
+Node: Protocols Database1633861
+Node: Inet Example1637426
+Node: Misc Namespaces1639427
+Node: Open/Close Sockets1640180
+Node: Creating a Socket1640685
+Node: Closing a Socket1642382
+Node: Socket Pairs1643925
+Node: Connections1645949
+Node: Connecting1647050
+Node: Listening1649901
+Node: Accepting Connections1651980
+Node: Who is Connected1655126
+Node: Transferring Data1656244
+Node: Sending Data1657360
+Node: Receiving Data1659923
+Node: Socket Data Options1661695
+Node: Byte Stream Example1662576
+Node: Server Example1664599
+Node: Out-of-Band Data1668587
+Node: Datagrams1674454
+Node: Sending Datagrams1675492
+Node: Receiving Datagrams1677442
+Node: Datagram Example1679526
+Node: Example Receiver1681525
+Node: Inetd1684064
+Node: Inetd Servers1684882
+Node: Configuring Inetd1686137
+Node: Socket Options1688819
+Node: Socket Option Functions1689536
+Node: Socket-Level Options1691117
+Node: Networks Database1694766
+Node: Low-Level Terminal Interface1697650
+Node: Is It a Terminal1699122
+Node: I/O Queues1701038
+Node: Canonical or Not1703001
+Node: Terminal Modes1704854
+Node: Mode Data Types1706430
+Node: Mode Functions1708278
+Node: Setting Modes1712227
+Node: Input Modes1714232
+Node: Output Modes1719532
+Node: Control Modes1721260
+Node: Local Modes1725378
+Node: Line Speed1731784
+Node: Special Characters1735983
+Node: Editing Characters1737908
+Node: Signal Characters1742287
+Node: Start/Stop Characters1745174
+Node: Other Special1747061
+Node: Noncanonical Input1749077
+Node: BSD Terminal Modes1753908
+Node: Line Control1755397
+Node: Noncanon Example1760147
+Node: Pseudo-Terminals1762327
+Node: Allocation1763246
+Node: Pseudo-Terminal Pairs1768012
+Node: Syslog1770557
+Node: Overview of Syslog1771509
+Node: Submitting Syslog Messages1775700
+Node: openlog1776525
+Node: syslog; vsyslog1781516
+Node: closelog1785750
+Node: setlogmask1786903
+Node: Syslog Example1788758
+Node: Mathematics1789412
+Node: Mathematical Constants1791137
+Node: Trig Functions1793140
+Node: Inverse Trig Functions1796903
+Node: Exponents and Logarithms1864585
+Node: Hyperbolic Functions1872852
+Node: Special Functions1876935
+Node: Errors in Math Functions1881513
+Node: Pseudo-Random Numbers1964779
+Node: ISO Random1967028
+Node: BSD Random1968977
+Node: SVID Random1973569
+Node: FP Function Optimizations1986890
+Node: Arithmetic1988984
+Node: Integers1990266
+Node: Integer Division1993267
+Node: Floating Point Numbers1996975
+Node: Floating Point Classes1998723
+Node: Floating Point Errors2002754
+Node: FP Exceptions2003261
+Node: Infinity and NaN2007617
+Node: Status bit operations2010561
+Node: Math Error Reporting2014704
+Node: Rounding2017043
+Node: Control Functions2020507
+Node: Arithmetic Functions2025330
+Node: Absolute Value2026205
+Node: Normalization Functions2028285
+Node: Rounding Functions2031601
+Node: Remainder Functions2036061
+Node: FP Bit Twiddling2038219
+Node: FP Comparison Functions2041350
+Node: Misc FP Arithmetic2044077
+Node: Complex Numbers2046842
+Node: Operations on Complex2048551
+Node: Parsing of Numbers2050918
+Node: Parsing of Integers2051619
+Node: Parsing of Floats2062226
+Node: System V Number Conversion2067412
+Node: Date and Time2073032
+Node: Time Basics2073763
+Node: Elapsed Time2075648
+Node: Processor And CPU Time2079200
+Node: CPU Time2081092
+Node: Processor Time2082794
+Node: Calendar Time2085369
+Node: Simple Calendar Time2087309
+Node: High-Resolution Calendar2089736
+Node: Broken-down Time2095101
+Node: High Accuracy Clock2166936
+Node: Formatting Calendar Time2174407
+Node: Parsing Date and Time2190392
+Node: Low-Level Time String Parsing2191247
+Node: General Time String Parsing2204903
+Node: TZ Variable2212043
+Node: Time Zone Functions2218101
+Node: Time Functions Example2220958
+Node: Setting an Alarm2222043
+Node: Sleeping2227821
+Node: Resource Usage And Limitation2232427
+Node: Resource Usage2233108
+Node: Limits on Resources2238610
+Node: Priority2247861
+Node: Absolute Priority2250301
+Node: Realtime Scheduling2255414
+Node: Basic Scheduling Functions2258872
+Node: Traditional Scheduling2266811
+Node: Traditional Scheduling Intro2267395
+Node: Traditional Scheduling Functions2271673
+Node: CPU Affinity2275584
+Node: Memory Resources2281621
+Node: Memory Subsystem2282479
+Node: Query Memory Parameters2284870
+Node: Processor Resources2288532
+Node: Non-Local Exits2290659
+Node: Non-Local Intro2291372
+Node: Non-Local Details2295087
+Node: Non-Local Exits and Signals2298174
+Node: System V contexts2299686
+Node: Signal Handling2312657
+Node: Concepts of Signals2314694
+Node: Kinds of Signals2315265
+Node: Signal Generation2316671
+Node: Delivery of Signal2318949
+Node: Standard Signals2321813
+Node: Program Error Signals2323414
+Node: Termination Signals2330891
+Node: Alarm Signals2334745
+Node: Asynchronous I/O Signals2335991
+Node: Job Control Signals2337192
+Node: Operation Error Signals2341811
+Node: Miscellaneous Signals2343767
+Node: Signal Messages2345478
+Node: Signal Actions2347370
+Node: Basic Signal Handling2348324
+Node: Advanced Signal Handling2354389
+Node: Signal and Sigaction2357375
+Node: Sigaction Function Example2359135
+Node: Flags for Sigaction2361432
+Node: Initial Signal Actions2363820
+Node: Defining Handlers2365200
+Node: Handler Returns2367393
+Node: Termination in Handler2369421
+Node: Longjmp in Handler2370856
+Node: Signals in Handler2372952
+Node: Merged Signals2375083
+Node: Nonreentrancy2380752
+Node: Atomic Data Access2386169
+Node: Non-atomic Example2387226
+Node: Atomic Types2389012
+Node: Atomic Usage2390001
+Node: Interrupted Primitives2391486
+Node: Generating Signals2394966
+Node: Signaling Yourself2395566
+Node: Signaling Another Process2397532
+Node: Permission for kill2464777
+Node: Kill Example2466584
+Node: Blocking Signals2468893
+Node: Why Block2470672
+Node: Signal Sets2472219
+Node: Process Signal Mask2475264
+Node: Testing for Delivery2478596
+Node: Blocking for Handler2479841
+Node: Checking for Pending Signals2482256
+Node: Remembering a Signal2484260
+Node: Waiting for a Signal2487805
+Node: Using Pause2488357
+Node: Pause Problems2489998
+Node: Sigsuspend2491723
+Node: Signal Stack2494426
+Node: BSD Signal Handling2499763
+Node: BSD Handler2501046
+Node: Blocking in BSD2503499
+Node: Program Basics2504969
+Node: Program Arguments2507037
+Node: Argument Syntax2509028
+Node: Parsing Program Arguments2511712
+Node: Getopt2512827
+Node: Using Getopt2513472
+Node: Example of Getopt2517616
+Node: Getopt Long Options2520461
+Node: Getopt Long Option Example2525715
+Node: Argp2528739
+Node: Argp Global Variables2532101
+Node: Argp Parsers2534148
+Node: Argp Option Vectors2537540
+Node: Argp Option Flags2540762
+Node: Argp Parser Functions2542823
+Node: Argp Special Keys2545527
+Node: Argp Parsing State2550823
+Node: Argp Helper Functions2554416
+Node: Argp Children2557467
+Node: Argp Flags2559564
+Node: Argp Help Filtering2561853
+Node: Argp Help Filter Keys2563100
+Node: Argp Help2564028
+Node: Argp Help Flags2565220
+Node: Argp Examples2567583
+Node: Argp Example 12568066
+Node: Argp Example 22568840
+Node: Argp Example 32571723
+Node: Argp Example 42578608
+Node: Argp User Customization2586170
+Node: Suboptions2587910
+Node: Suboptions Example2589865
+Node: Environment Variables2592012
+Node: Environment Access2593875
+Node: Standard Environment2599680
+Node: Auxiliary Vector2603878
+Node: System Calls2605241
+Node: Program Termination2608730
+Node: Normal Termination2609946
+Node: Exit Status2611356
+Node: Cleanups on Exit2614727
+Node: Aborting a Program2616542
+Node: Termination Internals2617453
+Node: Processes2619641
+Node: Running a Command2621665
+Node: Process Creation Concepts2623700
+Node: Process Identification2625717
+Node: Creating a Process2626651
+Node: Executing a File2630281
+Node: Process Completion2637439
+Node: Process Completion Status2643724
+Node: BSD Wait Functions2645381
+Node: Process Creation Example2647264
+Node: Job Control2649512
+Node: Concepts of Job Control2650792
+Node: Job Control is Optional2654154
+Node: Controlling Terminal2655207
+Node: Access to the Terminal2656122
+Node: Orphaned Process Groups2657732
+Node: Implementing a Shell2658730
+Node: Data Structures2659620
+Node: Initializing the Shell2662254
+Node: Launching Jobs2665946
+Node: Foreground and Background2673365
+Node: Stopped and Terminated Jobs2676464
+Node: Continuing Stopped Jobs2681599
+Node: Missing Pieces2683222
+Node: Functions for Job Control2684857
+Node: Identifying the Terminal2685344
+Node: Process Group Functions2686932
+Node: Terminal Access Functions2691969
+Node: Name Service Switch2695469
+Node: NSS Basics2696767
+Node: NSS Configuration File2698355
+Node: Services in the NSS configuration2763901
+Node: Actions in the NSS configuration2765200
+Node: Notes on NSS Configuration File2768372
+Node: NSS Module Internals2770260
+Node: NSS Module Names2770963
+Ref: NSS Module Names-Footnote-12773010
+Ref: NSS Module Names-Footnote-22773164
+Node: NSS Modules Interface2773342
+Node: Extending NSS2778081
+Node: Adding another Service to NSS2779019
+Node: NSS Module Function Internals2781261
+Node: Users and Groups2786169
+Node: User and Group IDs2788781
+Node: Process Persona2789694
+Node: Why Change Persona2791386
+Node: How Change Persona2793274
+Node: Reading Persona2795167
+Node: Setting User ID2797455
+Node: Setting Groups2800331
+Node: Enable/Disable Setuid2806012
+Node: Setuid Program Example2808054
+Node: Tips for Setuid2811446
+Node: Who Logged In2813968
+Node: User Accounting Database2816360
+Node: Manipulating the Database2817553
+Node: XPG Functions2829921
+Node: Logging In and Out2834410
+Node: User Database2836543
+Node: User Data Structure2837214
+Node: Lookup User2838493
+Node: Scanning All Users2841075
+Node: Writing a User Entry2844050
+Node: Group Database2845068
+Node: Group Data Structure2845653
+Node: Lookup Group2846434
+Node: Scanning All Groups2848948
+Node: Database Example2851997
+Node: Netgroup Database2854174
+Node: Netgroup Data2854597
+Node: Lookup Netgroup2856128
+Node: Netgroup Membership2859566
+Node: System Management2860909
+Node: Host Identification2861843
+Node: Platform Type2868336
+Node: Filesystem Handling2871656
+Node: Mount Information2873162
+Node: fstab2875349
+Node: mtab2881197
+Node: Other Mount Information2890534
+Node: Mount-Unmount-Remount2891063
+Node: System Parameters2901076
+Node: System Configuration2906623
+Node: General Limits2908197
+Node: System Options2911846
+Node: Version Supported2915192
+Node: Sysconf2916799
+Node: Sysconf Definition2917442
+Node: Constants for Sysconf2918130
+Node: Examples of Sysconf2931115
+Node: Minimums2932119
+Node: Limits for Files2934836
+Node: Options for Files2937947
+Node: File Minimums2940250
+Node: Pathconf2942477
+Node: Utility Limits2945794
+Node: Utility Minimums2947741
+Node: String Parameters2949505
+Node: Cryptographic Functions2953401
+Node: Legal Problems2955377
+Node: getpass2957652
+Node: crypt2959807
+Node: DES Encryption2964542
+Node: Debugging Support2970772
+Node: Backtraces2971417
+Node: POSIX Threads2976170
+Node: Thread-specific Data2976582
+Node: Non-POSIX Extensions2977922
+Node: Default Thread Attributes2978359
+Node: Language Features2979421
+Node: Consistency Checking2980364
+Node: Variadic Functions2984912
+Node: Why Variadic2985989
+Node: How Variadic2987963
+Node: Variadic Prototypes2989195
+Node: Receiving Arguments2990348
+Node: How Many Arguments2993033
+Node: Calling Variadics2994708
+Node: Argument Macros2996822
+Node: Variadic Example2999805
+Node: Null Pointer Constant3064789
+Node: Important Data Types3065878
+Node: Data Type Measurements3067728
+Node: Width of Type3068590
+Node: Range of Type3069504
+Node: Floating Type Macros3073080
+Node: Floating Point Concepts3074347
+Node: Floating Point Parameters3078092
+Node: IEEE Floating Point3085056
+Node: Structure Measurement3086822
+Node: Library Summary3087526
+Node: Installation3292885
+Node: Configuring and compiling3294020
+Node: Running make install3369719
+Node: Tools for Compilation3373571
+Node: Linux3376172
+Node: Reporting Bugs3378602
+Node: Maintenance3380948
+Node: Source Layout3381349
+Node: Adding Platform-specific3385421
+Node: Porting3388459
+Node: Hierarchy Conventions3396176
+Node: Porting to Unix3401230
+Node: Platform3403254
+Node: PowerPC3403565
+Node: Contributors3406724
+Node: Free Manuals3418135
+Node: Copying3423073
+Node: Documentation License3451228
+Node: Concept Index3476365
+Node: Type Index3577390
+Node: Function Index3589885
+Node: Variable Index3782865
+Node: File Index3889925
 
 End Tag Table
