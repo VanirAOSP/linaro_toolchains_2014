@@ -49,8 +49,14 @@ extern char arm_arch_name[];
            builtin_define ("__ARM_FEATURE_QBIT");	\
         if (TARGET_ARM_SAT)				\
            builtin_define ("__ARM_FEATURE_SAT");	\
+        if (TARGET_CRYPTO)				\
+	   builtin_define ("__ARM_FEATURE_CRYPTO");	\
 	if (unaligned_access)				\
 	  builtin_define ("__ARM_FEATURE_UNALIGNED");	\
+	if (TARGET_CRC32)				\
+	  builtin_define ("__ARM_FEATURE_CRC32");	\
+	if (TARGET_32BIT)				\
+	  builtin_define ("__ARM_32BIT_STATE");		\
 	if (TARGET_ARM_FEATURE_LDREX)				\
 	  builtin_define_with_int_value (			\
 	    "__ARM_FEATURE_LDREX", TARGET_ARM_FEATURE_LDREX);	\
@@ -273,6 +279,8 @@ extern void (*arm_lang_output_object_attributes_hook)(void);
 
 #define TARGET_LDRD			(arm_arch5e && ARM_DOUBLEWORD_ALIGN \
                                          && !TARGET_THUMB1)
+
+#define TARGET_CRC32			(arm_arch_crc)
 
 /* The following two macros concern the ability to execute coprocessor
    instructions for VFPv3 or NEON.  TARGET_VFP3/TARGET_VFPD32 are currently
@@ -553,6 +561,9 @@ extern int arm_arch_thumb_hwdiv;
 /* Nonzero if we should use Neon to handle 64-bits operations rather
    than core registers.  */
 extern int prefer_neon_for_64bits;
+
+/* Nonzero if chip supports the ARMv8 CRC instructions.  */
+extern int arm_arch_crc;
 
 #ifndef TARGET_DEFAULT
 #define TARGET_DEFAULT  (MASK_APCS_FRAME)
@@ -1233,11 +1244,15 @@ enum reg_class
    VFPv2.
    In big-endian mode, modes greater than word size (i.e. DFmode) are stored in
    VFP registers in little-endian order.  We can't describe that accurately to
-   GCC, so avoid taking subregs of such values.  */
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)	\
-  (TARGET_VFP && TARGET_BIG_END				\
-   && (GET_MODE_SIZE (FROM) > UNITS_PER_WORD		\
-       || GET_MODE_SIZE (TO) > UNITS_PER_WORD)		\
+   GCC, so avoid taking subregs of such values.
+   The only exception is going from a 128-bit to a 64-bit type.  In that case
+   the data layout happens to be consistent for big-endian, so we explicitly allow
+   that case.  */
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)		\
+  (TARGET_VFP && TARGET_BIG_END					\
+   && !(GET_MODE_SIZE (FROM) == 16 && GET_MODE_SIZE (TO) == 8)	\
+   && (GET_MODE_SIZE (FROM) > UNITS_PER_WORD			\
+       || GET_MODE_SIZE (TO) > UNITS_PER_WORD)			\
    && reg_classes_intersect_p (VFP_REGS, (CLASS)))
 
 /* The class value for index registers, and the one for base regs.  */

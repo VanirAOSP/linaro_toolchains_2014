@@ -55,7 +55,7 @@ Introduction
 This manual documents the internals of the GNU compilers, including how
 to port them to new targets and some information about how to write
 front ends for new languages.  It corresponds to the compilers
-(crosstool-NG linaro-1.13.1+bzr2644 - Linaro GCC 2014.01 - Cortex-A15)
+(crosstool-NG linaro-1.13.1+bzr2651 - Linaro GCC 2014.04 - Cortex-A15)
 version 4.8.3.  The use of the GNU compilers is documented in a separate
 manual.  *Note Introduction: (gcc)Top.
 
@@ -26389,7 +26389,7 @@ modes.  Attributes are defined using:
      		      QABSNEG))]
        "TARGET_NEON"
        "vq<absneg>.<V_s_elem>\t%<V_reg>0, %<V_reg>1"
-       [(set_attr "neon_type" "neon_vqneg_vqabs")]
+       [(set_attr "type" "neon_vqneg_vqabs")]
      )
 
  This is equivalent to:
@@ -26401,7 +26401,7 @@ modes.  Attributes are defined using:
      		      UNSPEC_VQABS))]
        "TARGET_NEON"
        "vqabs.<V_s_elem>\t%<V_reg>0, %<V_reg>1"
-       [(set_attr "neon_type" "neon_vqneg_vqabs")]
+       [(set_attr "type" "neon_vqneg_vqabs")]
      )
 
      (define_insn "neon_vqneg<mode>"
@@ -26411,7 +26411,7 @@ modes.  Attributes are defined using:
      		      UNSPEC_VQNEG))]
        "TARGET_NEON"
        "vqneg.<V_s_elem>\t%<V_reg>0, %<V_reg>1"
-       [(set_attr "neon_type" "neon_vqneg_vqabs")]
+       [(set_attr "type" "neon_vqneg_vqabs")]
      )
 
 
@@ -49375,118 +49375,118 @@ Node: Substitutions1112794
 Node: Examples1115036
 Node: Code Iterators1116484
 Node: Int Iterators1118763
-Node: Subst Iterators1121222
-Node: Target Macros1122914
-Node: Target Structure1126002
-Node: Driver1128118
-Node: Run-time Target1146903
-Node: Per-Function Data1156068
-Node: Storage Layout1158832
-Node: Type Layout1184887
-Node: Registers1200210
-Node: Register Basics1201184
-Node: Allocation Order1206692
-Node: Values in Registers1209138
-Node: Leaf Functions1216616
-Node: Stack Registers1219475
-Node: Register Classes1220747
-Node: Old Constraints1250714
-Node: Stack and Calling1257854
-Node: Frame Layout1258388
-Node: Exception Handling1269264
-Node: Stack Checking1275476
-Node: Frame Registers1280290
-Node: Elimination1288549
-Node: Stack Arguments1292779
-Node: Register Arguments1299642
-Node: Scalar Return1319945
-Node: Aggregate Return1326032
-Node: Caller Saves1330243
-Node: Function Entry1331420
-Node: Profiling1342514
-Node: Tail Calls1344213
-Node: Stack Smashing Protection1346116
-Node: Varargs1347744
-Node: Trampolines1354431
-Node: Library Calls1360474
-Node: Addressing Modes1365413
-Node: Anchored Addresses1385428
-Node: Condition Code1388071
-Node: CC0 Condition Codes1390200
-Node: MODE_CC Condition Codes1393446
-Node: Cond Exec Macros1399970
-Node: Costs1400316
-Node: Scheduling1416778
-Node: Sections1436195
-Node: PIC1451893
-Node: Assembler Format1453952
-Node: File Framework1455090
-Ref: TARGET_HAVE_SWITCHABLE_BSS_SECTIONS1462022
-Node: Data Output1465292
-Node: Uninitialized Data1473061
-Node: Label Output1478072
-Node: Initialization1501028
-Node: Macros for Initialization1506989
-Node: Instruction Output1513708
-Node: Dispatch Tables1524203
-Node: Exception Region Output1528581
-Node: Alignment Output1535259
-Node: Debugging Info1539805
-Node: All Debuggers1540475
-Node: DBX Options1543330
-Node: DBX Hooks1548768
-Node: File Names and DBX1550077
-Node: SDB and DWARF1552189
-Node: VMS Debug1558261
-Node: Floating Point1558848
-Node: Mode Switching1563324
-Node: Target Attributes1567320
-Node: Emulated TLS1575634
-Node: MIPS Coprocessors1579024
-Node: PCH Target1580321
-Node: C++ ABI1582163
-Node: Named Address Spaces1586957
-Node: Misc1591891
-Ref: TARGET_SHIFT_TRUNCATION_MASK1598633
-Node: Host Config1644155
-Node: Host Common1645223
-Node: Filesystem1647597
-Node: Host Misc1651712
-Node: Fragments1654161
-Node: Target Fragment1655356
-Node: Host Fragment1665984
-Node: Collect21666224
-Node: Header Dirs1668860
-Node: Type Information1670283
-Node: GTY Options1673502
-Node: User GC1687836
-Node: GGC Roots1691567
-Node: Files1692280
-Node: Invoking the garbage collector1694987
-Node: Troubleshooting1696492
-Node: Plugins1697567
-Node: Plugins loading1698685
-Node: Plugin API1699555
-Node: Plugins pass1706583
-Node: Plugins GC1708554
-Node: Plugins description1710219
-Node: Plugins attr1710755
-Node: Plugins recording1712641
-Node: Plugins gate1713491
-Node: Plugins tracking1714082
-Node: Plugins building1714670
-Node: LTO1716457
-Node: LTO Overview1717318
-Node: LTO object file layout1723150
-Node: IPA1727780
-Node: WHOPR1736745
-Node: Internal flags1741434
-Node: Funding1742646
-Node: GNU Project1745130
-Node: Copying1745779
-Node: GNU Free Documentation License1783290
-Node: Contributors1808410
-Node: Option Index1845811
-Node: Concept Index1846615
+Node: Subst Iterators1121207
+Node: Target Macros1122899
+Node: Target Structure1125987
+Node: Driver1128103
+Node: Run-time Target1146888
+Node: Per-Function Data1156053
+Node: Storage Layout1158817
+Node: Type Layout1184872
+Node: Registers1200195
+Node: Register Basics1201169
+Node: Allocation Order1206677
+Node: Values in Registers1209123
+Node: Leaf Functions1216601
+Node: Stack Registers1219460
+Node: Register Classes1220732
+Node: Old Constraints1250699
+Node: Stack and Calling1257839
+Node: Frame Layout1258373
+Node: Exception Handling1269249
+Node: Stack Checking1275461
+Node: Frame Registers1280275
+Node: Elimination1288534
+Node: Stack Arguments1292764
+Node: Register Arguments1299627
+Node: Scalar Return1319930
+Node: Aggregate Return1326017
+Node: Caller Saves1330228
+Node: Function Entry1331405
+Node: Profiling1342499
+Node: Tail Calls1344198
+Node: Stack Smashing Protection1346101
+Node: Varargs1347729
+Node: Trampolines1354416
+Node: Library Calls1360459
+Node: Addressing Modes1365398
+Node: Anchored Addresses1385413
+Node: Condition Code1388056
+Node: CC0 Condition Codes1390185
+Node: MODE_CC Condition Codes1393431
+Node: Cond Exec Macros1399955
+Node: Costs1400301
+Node: Scheduling1416763
+Node: Sections1436180
+Node: PIC1451878
+Node: Assembler Format1453937
+Node: File Framework1455075
+Ref: TARGET_HAVE_SWITCHABLE_BSS_SECTIONS1462007
+Node: Data Output1465277
+Node: Uninitialized Data1473046
+Node: Label Output1478057
+Node: Initialization1501013
+Node: Macros for Initialization1506974
+Node: Instruction Output1513693
+Node: Dispatch Tables1524188
+Node: Exception Region Output1528566
+Node: Alignment Output1535244
+Node: Debugging Info1539790
+Node: All Debuggers1540460
+Node: DBX Options1543315
+Node: DBX Hooks1548753
+Node: File Names and DBX1550062
+Node: SDB and DWARF1552174
+Node: VMS Debug1558246
+Node: Floating Point1558833
+Node: Mode Switching1563309
+Node: Target Attributes1567305
+Node: Emulated TLS1575619
+Node: MIPS Coprocessors1579009
+Node: PCH Target1580306
+Node: C++ ABI1582148
+Node: Named Address Spaces1586942
+Node: Misc1591876
+Ref: TARGET_SHIFT_TRUNCATION_MASK1598618
+Node: Host Config1644140
+Node: Host Common1645208
+Node: Filesystem1647582
+Node: Host Misc1651697
+Node: Fragments1654146
+Node: Target Fragment1655341
+Node: Host Fragment1665969
+Node: Collect21666209
+Node: Header Dirs1668845
+Node: Type Information1670268
+Node: GTY Options1673487
+Node: User GC1687821
+Node: GGC Roots1691552
+Node: Files1692265
+Node: Invoking the garbage collector1694972
+Node: Troubleshooting1696477
+Node: Plugins1697552
+Node: Plugins loading1698670
+Node: Plugin API1699540
+Node: Plugins pass1706568
+Node: Plugins GC1708539
+Node: Plugins description1710204
+Node: Plugins attr1710740
+Node: Plugins recording1712626
+Node: Plugins gate1713476
+Node: Plugins tracking1714067
+Node: Plugins building1714655
+Node: LTO1716442
+Node: LTO Overview1717303
+Node: LTO object file layout1723135
+Node: IPA1727765
+Node: WHOPR1736730
+Node: Internal flags1741419
+Node: Funding1742631
+Node: GNU Project1745115
+Node: Copying1745764
+Node: GNU Free Documentation License1783275
+Node: Contributors1808395
+Node: Option Index1845796
+Node: Concept Index1846600
 
 End Tag Table
