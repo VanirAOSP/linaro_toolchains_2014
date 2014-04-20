@@ -3,10 +3,10 @@ This is libc.info, produced by makeinfo version 5.1 from libc.texinfo.
 This file documents the GNU C Library.
 
    This is 'The GNU C Library Reference Manual', for version
-2.18-2013.10 (crosstool-NG linaro-1.13.1+bzr2644 - Linaro GCC 2014.01 -
+2.19-2014.04 (crosstool-NG linaro-1.13.1+bzr2650 - Linaro GCC 2014.04 -
 Cortex-A8).
 
-   Copyright (C) 1993-2013 Free Software Foundation, Inc.
+   Copyright (C) 1993-2014 Free Software Foundation, Inc.
 
    Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.3 or
@@ -513,6 +513,7 @@ START-INFO-DIR-ENTRY
 * aio_write64: (libc)Asynchronous Reads/Writes.
 * aio_write: (libc)Asynchronous Reads/Writes.
 * alarm: (libc)Setting an Alarm.
+* aligned_alloc: (libc)Aligned Memory Blocks.
 * alloca: (libc)Variable Size Automatic.
 * alphasort64: (libc)Scanning Directory Content.
 * alphasort: (libc)Scanning Directory Content.
@@ -945,7 +946,6 @@ START-INFO-DIR-ENTRY
 * getpeername: (libc)Who is Connected.
 * getpgid: (libc)Process Group Functions.
 * getpgrp: (libc)Process Group Functions.
-* getpgrp: (libc)Process Group Functions.
 * getpid: (libc)Process Identification.
 * getppid: (libc)Process Identification.
 * getpriority: (libc)Traditional Scheduling Functions.
@@ -1289,7 +1289,11 @@ START-INFO-DIR-ENTRY
 * printf_size_info: (libc)Predefined Printf Handlers.
 * psignal: (libc)Signal Messages.
 * pthread_getattr_default_np: (libc)Default Thread Attributes.
-* pthread_getattr_default_np: (libc)Default Thread Attributes.
+* pthread_getspecific: (libc)Thread-specific Data.
+* pthread_key_create: (libc)Thread-specific Data.
+* pthread_key_delete: (libc)Thread-specific Data.
+* pthread_setattr_default_np: (libc)Default Thread Attributes.
+* pthread_setspecific: (libc)Thread-specific Data.
 * ptsname: (libc)Allocation.
 * ptsname_r: (libc)Allocation.
 * putc: (libc)Simple Output.
@@ -1427,6 +1431,8 @@ START-INFO-DIR-ENTRY
 * setutent: (libc)Manipulating the Database.
 * setutxent: (libc)XPG Functions.
 * setvbuf: (libc)Controlling Buffering.
+* shm_open: (libc)Memory-mapped I/O.
+* shm_unlink: (libc)Memory-mapped I/O.
 * shutdown: (libc)Closing a Socket.
 * sigaction: (libc)Advanced Signal Handling.
 * sigaddset: (libc)Signal Sets.
@@ -1705,6 +1711,983 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
 
 
+File: libc.info,  Node: Obstack Functions,  Next: Growing Objects,  Prev: Freeing Obstack Objects,  Up: Obstacks
+
+3.2.4.5 Obstack Functions and Macros
+....................................
+
+The interfaces for using obstacks may be defined either as functions or
+as macros, depending on the compiler.  The obstack facility works with
+all C compilers, including both ISO C and traditional C, but there are
+precautions you must take if you plan to use compilers other than GNU C.
+
+   If you are using an old-fashioned non-ISO C compiler, all the obstack
+"functions" are actually defined only as macros.  You can call these
+macros like functions, but you cannot use them in any other way (for
+example, you cannot take their address).
+
+   Calling the macros requires a special precaution: namely, the first
+operand (the obstack pointer) may not contain any side effects, because
+it may be computed more than once.  For example, if you write this:
+
+     obstack_alloc (get_obstack (), 4);
+
+you will find that 'get_obstack' may be called several times.  If you
+use '*obstack_list_ptr++' as the obstack pointer argument, you will get
+very strange results since the incrementation may occur several times.
+
+   In ISO C, each function has both a macro definition and a function
+definition.  The function definition is used if you take the address of
+the function without calling it.  An ordinary call uses the macro
+definition by default, but you can request the function definition
+instead by writing the function name in parentheses, as shown here:
+
+     char *x;
+     void *(*funcp) ();
+     /* Use the macro.  */
+     x = (char *) obstack_alloc (obptr, size);
+     /* Call the function.  */
+     x = (char *) (obstack_alloc) (obptr, size);
+     /* Take the address of the function.  */
+     funcp = obstack_alloc;
+
+This is the same situation that exists in ISO C for the standard library
+functions.  *Note Macro Definitions::.
+
+   *Warning:* When you do use the macros, you must observe the
+precaution of avoiding side effects in the first operand, even in ISO C.
+
+   If you use the GNU C compiler, this precaution is not necessary,
+because various language extensions in GNU C permit defining the macros
+so as to compute each argument only once.
+
+
+File: libc.info,  Node: Growing Objects,  Next: Extra Fast Growing,  Prev: Obstack Functions,  Up: Obstacks
+
+3.2.4.6 Growing Objects
+.......................
+
+Because memory in obstack chunks is used sequentially, it is possible to
+build up an object step by step, adding one or more bytes at a time to
+the end of the object.  With this technique, you do not need to know how
+much data you will put in the object until you come to the end of it.
+We call this the technique of "growing objects".  The special functions
+for adding data to the growing object are described in this section.
+
+   You don't need to do anything special when you start to grow an
+object.  Using one of the functions to add data to the object
+automatically starts it.  However, it is necessary to say explicitly
+when the object is finished.  This is done with the function
+'obstack_finish'.
+
+   The actual address of the object thus built up is not known until the
+object is finished.  Until then, it always remains possible that you
+will add so much data that the object must be copied into a new chunk.
+
+   While the obstack is in use for a growing object, you cannot use it
+for ordinary allocation of another object.  If you try to do so, the
+space already added to the growing object will become part of the other
+object.
+
+ -- Function: void obstack_blank (struct obstack *OBSTACK-PTR, int SIZE)
+     Preliminary: | MT-Safe race:obstack-ptr | AS-Safe | AC-Unsafe
+     corrupt mem | *Note POSIX Safety Concepts::.
+
+     The most basic function for adding to a growing object is
+     'obstack_blank', which adds space without initializing it.
+
+ -- Function: void obstack_grow (struct obstack *OBSTACK-PTR, void
+          *DATA, int SIZE)
+     Preliminary: | MT-Safe race:obstack-ptr | AS-Safe | AC-Unsafe
+     corrupt mem | *Note POSIX Safety Concepts::.
+
+     To add a block of initialized space, use 'obstack_grow', which is
+     the growing-object analogue of 'obstack_copy'.  It adds SIZE bytes
+     of data to the growing object, copying the contents from DATA.
+
+ -- Function: void obstack_grow0 (struct obstack *OBSTACK-PTR, void
+          *DATA, int SIZE)
+     Preliminary: | MT-Safe race:obstack-ptr | AS-Safe | AC-Unsafe
+     corrupt mem | *Note POSIX Safety Concepts::.
+
+     This is the growing-object analogue of 'obstack_copy0'.  It adds
+     SIZE bytes copied from DATA, followed by an additional null
+     character.
+
+ -- Function: void obstack_1grow (struct obstack *OBSTACK-PTR, char C)
+     Preliminary: | MT-Safe race:obstack-ptr | AS-Safe | AC-Unsafe
+     corrupt mem | *Note POSIX Safety Concepts::.
+
+     To add one character at a time, use the function 'obstack_1grow'.
+     It adds a single byte containing C to the growing object.
+
+ -- Function: void obstack_ptr_grow (struct obstack *OBSTACK-PTR, void
+          *DATA)
+     Preliminary: | MT-Safe race:obstack-ptr | AS-Safe | AC-Unsafe
+     corrupt mem | *Note POSIX Safety Concepts::.
+
+     Adding the value of a pointer one can use the function
+     'obstack_ptr_grow'.  It adds 'sizeof (void *)' bytes containing the
+     value of DATA.
+
+ -- Function: void obstack_int_grow (struct obstack *OBSTACK-PTR, int
+          DATA)
+     Preliminary: | MT-Safe race:obstack-ptr | AS-Safe | AC-Unsafe
+     corrupt mem | *Note POSIX Safety Concepts::.
+
+     A single value of type 'int' can be added by using the
+     'obstack_int_grow' function.  It adds 'sizeof (int)' bytes to the
+     growing object and initializes them with the value of DATA.
+
+ -- Function: void * obstack_finish (struct obstack *OBSTACK-PTR)
+     Preliminary: | MT-Safe race:obstack-ptr | AS-Safe | AC-Unsafe
+     corrupt | *Note POSIX Safety Concepts::.
+
+     When you are finished growing the object, use the function
+     'obstack_finish' to close it off and return its final address.
+
+     Once you have finished the object, the obstack is available for
+     ordinary allocation or for growing another object.
+
+     This function can return a null pointer under the same conditions
+     as 'obstack_alloc' (*note Allocation in an Obstack::).
+
+   When you build an object by growing it, you will probably need to
+know afterward how long it became.  You need not keep track of this as
+you grow the object, because you can find out the length from the
+obstack just before finishing the object with the function
+'obstack_object_size', declared as follows:
+
+ -- Function: int obstack_object_size (struct obstack *OBSTACK-PTR)
+     Preliminary: | MT-Safe race:obstack-ptr | AS-Safe | AC-Safe | *Note
+     POSIX Safety Concepts::.
+
+     This function returns the current size of the growing object, in
+     bytes.  Remember to call this function _before_ finishing the
+     object.  After it is finished, 'obstack_object_size' will return
+     zero.
+
+   If you have started growing an object and wish to cancel it, you
+should finish it and then free it, like this:
+
+     obstack_free (obstack_ptr, obstack_finish (obstack_ptr));
+
+This has no effect if no object was growing.
+
+   You can use 'obstack_blank' with a negative size argument to make the
+current object smaller.  Just don't try to shrink it beyond zero
+length--there's no telling what will happen if you do that.
+
+
+File: libc.info,  Node: Extra Fast Growing,  Next: Status of an Obstack,  Prev: Growing Objects,  Up: Obstacks
+
+3.2.4.7 Extra Fast Growing Objects
+..................................
+
+The usual functions for growing objects incur overhead for checking
+whether there is room for the new growth in the current chunk.  If you
+are frequently constructing objects in small steps of growth, this
+overhead can be significant.
+
+   You can reduce the overhead by using special "fast growth" functions
+that grow the object without checking.  In order to have a robust
+program, you must do the checking yourself.  If you do this checking in
+the simplest way each time you are about to add data to the object, you
+have not saved anything, because that is what the ordinary growth
+functions do.  But if you can arrange to check less often, or check more
+efficiently, then you make the program faster.
+
+   The function 'obstack_room' returns the amount of room available in
+the current chunk.  It is declared as follows:
+
+ -- Function: int obstack_room (struct obstack *OBSTACK-PTR)
+     Preliminary: | MT-Safe race:obstack-ptr | AS-Safe | AC-Safe | *Note
+     POSIX Safety Concepts::.
+
+     This returns the number of bytes that can be added safely to the
+     current growing object (or to an object about to be started) in
+     obstack OBSTACK using the fast growth functions.
+
+   While you know there is room, you can use these fast growth functions
+for adding data to a growing object:
+
+ -- Function: void obstack_1grow_fast (struct obstack *OBSTACK-PTR, char
+          C)
+     Preliminary: | MT-Safe race:obstack-ptr | AS-Safe | AC-Unsafe
+     corrupt mem | *Note POSIX Safety Concepts::.
+
+     The function 'obstack_1grow_fast' adds one byte containing the
+     character C to the growing object in obstack OBSTACK-PTR.
+
+ -- Function: void obstack_ptr_grow_fast (struct obstack *OBSTACK-PTR,
+          void *DATA)
+     Preliminary: | MT-Safe race:obstack-ptr | AS-Safe | AC-Safe | *Note
+     POSIX Safety Concepts::.
+
+     The function 'obstack_ptr_grow_fast' adds 'sizeof (void *)' bytes
+     containing the value of DATA to the growing object in obstack
+     OBSTACK-PTR.
+
+ -- Function: void obstack_int_grow_fast (struct obstack *OBSTACK-PTR,
+          int DATA)
+     Preliminary: | MT-Safe race:obstack-ptr | AS-Safe | AC-Safe | *Note
+     POSIX Safety Concepts::.
+
+     The function 'obstack_int_grow_fast' adds 'sizeof (int)' bytes
+     containing the value of DATA to the growing object in obstack
+     OBSTACK-PTR.
+
+ -- Function: void obstack_blank_fast (struct obstack *OBSTACK-PTR, int
+          SIZE)
+     Preliminary: | MT-Safe race:obstack-ptr | AS-Safe | AC-Safe | *Note
+     POSIX Safety Concepts::.
+
+     The function 'obstack_blank_fast' adds SIZE bytes to the growing
+     object in obstack OBSTACK-PTR without initializing them.
+
+   When you check for space using 'obstack_room' and there is not enough
+room for what you want to add, the fast growth functions are not safe.
+In this case, simply use the corresponding ordinary growth function
+instead.  Very soon this will copy the object to a new chunk; then there
+will be lots of room available again.
+
+   So, each time you use an ordinary growth function, check afterward
+for sufficient space using 'obstack_room'.  Once the object is copied to
+a new chunk, there will be plenty of space again, so the program will
+start using the fast growth functions again.
+
+   Here is an example:
+
+     void
+     add_string (struct obstack *obstack, const char *ptr, int len)
+     {
+       while (len > 0)
+         {
+           int room = obstack_room (obstack);
+           if (room == 0)
+             {
+               /* Not enough room. Add one character slowly,
+                  which may copy to a new chunk and make room.  */
+               obstack_1grow (obstack, *ptr++);
+               len--;
+             }
+           else
+             {
+               if (room > len)
+                 room = len;
+               /* Add fast as much as we have room for. */
+               len -= room;
+               while (room-- > 0)
+                 obstack_1grow_fast (obstack, *ptr++);
+             }
+         }
+     }
+
+
+File: libc.info,  Node: Status of an Obstack,  Next: Obstacks Data Alignment,  Prev: Extra Fast Growing,  Up: Obstacks
+
+3.2.4.8 Status of an Obstack
+............................
+
+Here are functions that provide information on the current status of
+allocation in an obstack.  You can use them to learn about an object
+while still growing it.
+
+ -- Function: void * obstack_base (struct obstack *OBSTACK-PTR)
+     Preliminary: | MT-Safe | AS-Unsafe corrupt | AC-Safe | *Note POSIX
+     Safety Concepts::.
+
+     This function returns the tentative address of the beginning of the
+     currently growing object in OBSTACK-PTR.  If you finish the object
+     immediately, it will have that address.  If you make it larger
+     first, it may outgrow the current chunk--then its address will
+     change!
+
+     If no object is growing, this value says where the next object you
+     allocate will start (once again assuming it fits in the current
+     chunk).
+
+ -- Function: void * obstack_next_free (struct obstack *OBSTACK-PTR)
+     Preliminary: | MT-Safe | AS-Unsafe corrupt | AC-Safe | *Note POSIX
+     Safety Concepts::.
+
+     This function returns the address of the first free byte in the
+     current chunk of obstack OBSTACK-PTR.  This is the end of the
+     currently growing object.  If no object is growing,
+     'obstack_next_free' returns the same value as 'obstack_base'.
+
+ -- Function: int obstack_object_size (struct obstack *OBSTACK-PTR)
+     Preliminary: | MT-Safe race:obstack-ptr | AS-Safe | AC-Safe | *Note
+     POSIX Safety Concepts::.
+
+     This function returns the size in bytes of the currently growing
+     object.  This is equivalent to
+
+          obstack_next_free (OBSTACK-PTR) - obstack_base (OBSTACK-PTR)
+
+
+File: libc.info,  Node: Obstacks Data Alignment,  Next: Obstack Chunks,  Prev: Status of an Obstack,  Up: Obstacks
+
+3.2.4.9 Alignment of Data in Obstacks
+.....................................
+
+Each obstack has an "alignment boundary"; each object allocated in the
+obstack automatically starts on an address that is a multiple of the
+specified boundary.  By default, this boundary is aligned so that the
+object can hold any type of data.
+
+   To access an obstack's alignment boundary, use the macro
+'obstack_alignment_mask', whose function prototype looks like this:
+
+ -- Macro: int obstack_alignment_mask (struct obstack *OBSTACK-PTR)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
+     The value is a bit mask; a bit that is 1 indicates that the
+     corresponding bit in the address of an object should be 0.  The
+     mask value should be one less than a power of 2; the effect is that
+     all object addresses are multiples of that power of 2.  The default
+     value of the mask is a value that allows aligned objects to hold
+     any type of data: for example, if its value is 3, any type of data
+     can be stored at locations whose addresses are multiples of 4.  A
+     mask value of 0 means an object can start on any multiple of 1
+     (that is, no alignment is required).
+
+     The expansion of the macro 'obstack_alignment_mask' is an lvalue,
+     so you can alter the mask by assignment.  For example, this
+     statement:
+
+          obstack_alignment_mask (obstack_ptr) = 0;
+
+     has the effect of turning off alignment processing in the specified
+     obstack.
+
+   Note that a change in alignment mask does not take effect until
+_after_ the next time an object is allocated or finished in the obstack.
+If you are not growing an object, you can make the new alignment mask
+take effect immediately by calling 'obstack_finish'.  This will finish a
+zero-length object and then do proper alignment for the next object.
+
+
+File: libc.info,  Node: Obstack Chunks,  Next: Summary of Obstacks,  Prev: Obstacks Data Alignment,  Up: Obstacks
+
+3.2.4.10 Obstack Chunks
+.......................
+
+Obstacks work by allocating space for themselves in large chunks, and
+then parceling out space in the chunks to satisfy your requests.  Chunks
+are normally 4096 bytes long unless you specify a different chunk size.
+The chunk size includes 8 bytes of overhead that are not actually used
+for storing objects.  Regardless of the specified size, longer chunks
+will be allocated when necessary for long objects.
+
+   The obstack library allocates chunks by calling the function
+'obstack_chunk_alloc', which you must define.  When a chunk is no longer
+needed because you have freed all the objects in it, the obstack library
+frees the chunk by calling 'obstack_chunk_free', which you must also
+define.
+
+   These two must be defined (as macros) or declared (as functions) in
+each source file that uses 'obstack_init' (*note Creating Obstacks::).
+Most often they are defined as macros like this:
+
+     #define obstack_chunk_alloc malloc
+     #define obstack_chunk_free free
+
+   Note that these are simple macros (no arguments).  Macro definitions
+with arguments will not work!  It is necessary that
+'obstack_chunk_alloc' or 'obstack_chunk_free', alone, expand into a
+function name if it is not itself a function name.
+
+   If you allocate chunks with 'malloc', the chunk size should be a
+power of 2.  The default chunk size, 4096, was chosen because it is long
+enough to satisfy many typical requests on the obstack yet short enough
+not to waste too much memory in the portion of the last chunk not yet
+used.
+
+ -- Macro: int obstack_chunk_size (struct obstack *OBSTACK-PTR)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
+     This returns the chunk size of the given obstack.
+
+   Since this macro expands to an lvalue, you can specify a new chunk
+size by assigning it a new value.  Doing so does not affect the chunks
+already allocated, but will change the size of chunks allocated for that
+particular obstack in the future.  It is unlikely to be useful to make
+the chunk size smaller, but making it larger might improve efficiency if
+you are allocating many objects whose size is comparable to the chunk
+size.  Here is how to do so cleanly:
+
+     if (obstack_chunk_size (obstack_ptr) < NEW-CHUNK-SIZE)
+       obstack_chunk_size (obstack_ptr) = NEW-CHUNK-SIZE;
+
+
+File: libc.info,  Node: Summary of Obstacks,  Prev: Obstack Chunks,  Up: Obstacks
+
+3.2.4.11 Summary of Obstack Functions
+.....................................
+
+Here is a summary of all the functions associated with obstacks.  Each
+takes the address of an obstack ('struct obstack *') as its first
+argument.
+
+'void obstack_init (struct obstack *OBSTACK-PTR)'
+     Initialize use of an obstack.  *Note Creating Obstacks::.
+
+'void *obstack_alloc (struct obstack *OBSTACK-PTR, int SIZE)'
+     Allocate an object of SIZE uninitialized bytes.  *Note Allocation
+     in an Obstack::.
+
+'void *obstack_copy (struct obstack *OBSTACK-PTR, void *ADDRESS, int SIZE)'
+     Allocate an object of SIZE bytes, with contents copied from
+     ADDRESS.  *Note Allocation in an Obstack::.
+
+'void *obstack_copy0 (struct obstack *OBSTACK-PTR, void *ADDRESS, int SIZE)'
+     Allocate an object of SIZE+1 bytes, with SIZE of them copied from
+     ADDRESS, followed by a null character at the end.  *Note Allocation
+     in an Obstack::.
+
+'void obstack_free (struct obstack *OBSTACK-PTR, void *OBJECT)'
+     Free OBJECT (and everything allocated in the specified obstack more
+     recently than OBJECT).  *Note Freeing Obstack Objects::.
+
+'void obstack_blank (struct obstack *OBSTACK-PTR, int SIZE)'
+     Add SIZE uninitialized bytes to a growing object.  *Note Growing
+     Objects::.
+
+'void obstack_grow (struct obstack *OBSTACK-PTR, void *ADDRESS, int SIZE)'
+     Add SIZE bytes, copied from ADDRESS, to a growing object.  *Note
+     Growing Objects::.
+
+'void obstack_grow0 (struct obstack *OBSTACK-PTR, void *ADDRESS, int SIZE)'
+     Add SIZE bytes, copied from ADDRESS, to a growing object, and then
+     add another byte containing a null character.  *Note Growing
+     Objects::.
+
+'void obstack_1grow (struct obstack *OBSTACK-PTR, char DATA-CHAR)'
+     Add one byte containing DATA-CHAR to a growing object.  *Note
+     Growing Objects::.
+
+'void *obstack_finish (struct obstack *OBSTACK-PTR)'
+     Finalize the object that is growing and return its permanent
+     address.  *Note Growing Objects::.
+
+'int obstack_object_size (struct obstack *OBSTACK-PTR)'
+     Get the current size of the currently growing object.  *Note
+     Growing Objects::.
+
+'void obstack_blank_fast (struct obstack *OBSTACK-PTR, int SIZE)'
+     Add SIZE uninitialized bytes to a growing object without checking
+     that there is enough room.  *Note Extra Fast Growing::.
+
+'void obstack_1grow_fast (struct obstack *OBSTACK-PTR, char DATA-CHAR)'
+     Add one byte containing DATA-CHAR to a growing object without
+     checking that there is enough room.  *Note Extra Fast Growing::.
+
+'int obstack_room (struct obstack *OBSTACK-PTR)'
+     Get the amount of room now available for growing the current
+     object.  *Note Extra Fast Growing::.
+
+'int obstack_alignment_mask (struct obstack *OBSTACK-PTR)'
+     The mask used for aligning the beginning of an object.  This is an
+     lvalue.  *Note Obstacks Data Alignment::.
+
+'int obstack_chunk_size (struct obstack *OBSTACK-PTR)'
+     The size for allocating chunks.  This is an lvalue.  *Note Obstack
+     Chunks::.
+
+'void *obstack_base (struct obstack *OBSTACK-PTR)'
+     Tentative starting address of the currently growing object.  *Note
+     Status of an Obstack::.
+
+'void *obstack_next_free (struct obstack *OBSTACK-PTR)'
+     Address just after the end of the currently growing object.  *Note
+     Status of an Obstack::.
+
+
+File: libc.info,  Node: Variable Size Automatic,  Prev: Obstacks,  Up: Memory Allocation
+
+3.2.5 Automatic Storage with Variable Size
+------------------------------------------
+
+The function 'alloca' supports a kind of half-dynamic allocation in
+which blocks are allocated dynamically but freed automatically.
+
+   Allocating a block with 'alloca' is an explicit action; you can
+allocate as many blocks as you wish, and compute the size at run time.
+But all the blocks are freed when you exit the function that 'alloca'
+was called from, just as if they were automatic variables declared in
+that function.  There is no way to free the space explicitly.
+
+   The prototype for 'alloca' is in 'stdlib.h'.  This function is a BSD
+extension.
+
+ -- Function: void * alloca (size_t SIZE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
+     The return value of 'alloca' is the address of a block of SIZE
+     bytes of memory, allocated in the stack frame of the calling
+     function.
+
+   Do not use 'alloca' inside the arguments of a function call--you will
+get unpredictable results, because the stack space for the 'alloca'
+would appear on the stack in the middle of the space for the function
+arguments.  An example of what to avoid is 'foo (x, alloca (4), y)'.
+
+* Menu:
+
+* Alloca Example::              Example of using 'alloca'.
+* Advantages of Alloca::        Reasons to use 'alloca'.
+* Disadvantages of Alloca::     Reasons to avoid 'alloca'.
+* GNU C Variable-Size Arrays::  Only in GNU C, here is an alternative
+				 method of allocating dynamically and
+				 freeing automatically.
+
+
+File: libc.info,  Node: Alloca Example,  Next: Advantages of Alloca,  Up: Variable Size Automatic
+
+3.2.5.1 'alloca' Example
+........................
+
+As an example of the use of 'alloca', here is a function that opens a
+file name made from concatenating two argument strings, and returns a
+file descriptor or minus one signifying failure:
+
+     int
+     open2 (char *str1, char *str2, int flags, int mode)
+     {
+       char *name = (char *) alloca (strlen (str1) + strlen (str2) + 1);
+       stpcpy (stpcpy (name, str1), str2);
+       return open (name, flags, mode);
+     }
+
+Here is how you would get the same results with 'malloc' and 'free':
+
+     int
+     open2 (char *str1, char *str2, int flags, int mode)
+     {
+       char *name = (char *) malloc (strlen (str1) + strlen (str2) + 1);
+       int desc;
+       if (name == 0)
+         fatal ("virtual memory exceeded");
+       stpcpy (stpcpy (name, str1), str2);
+       desc = open (name, flags, mode);
+       free (name);
+       return desc;
+     }
+
+   As you can see, it is simpler with 'alloca'.  But 'alloca' has other,
+more important advantages, and some disadvantages.
+
+
+File: libc.info,  Node: Advantages of Alloca,  Next: Disadvantages of Alloca,  Prev: Alloca Example,  Up: Variable Size Automatic
+
+3.2.5.2 Advantages of 'alloca'
+..............................
+
+Here are the reasons why 'alloca' may be preferable to 'malloc':
+
+   * Using 'alloca' wastes very little space and is very fast.  (It is
+     open-coded by the GNU C compiler.)
+
+   * Since 'alloca' does not have separate pools for different sizes of
+     block, space used for any size block can be reused for any other
+     size.  'alloca' does not cause memory fragmentation.
+
+   * Nonlocal exits done with 'longjmp' (*note Non-Local Exits::)
+     automatically free the space allocated with 'alloca' when they exit
+     through the function that called 'alloca'.  This is the most
+     important reason to use 'alloca'.
+
+     To illustrate this, suppose you have a function
+     'open_or_report_error' which returns a descriptor, like 'open', if
+     it succeeds, but does not return to its caller if it fails.  If the
+     file cannot be opened, it prints an error message and jumps out to
+     the command level of your program using 'longjmp'.  Let's change
+     'open2' (*note Alloca Example::) to use this subroutine:
+
+          int
+          open2 (char *str1, char *str2, int flags, int mode)
+          {
+            char *name = (char *) alloca (strlen (str1) + strlen (str2) + 1);
+            stpcpy (stpcpy (name, str1), str2);
+            return open_or_report_error (name, flags, mode);
+          }
+
+     Because of the way 'alloca' works, the memory it allocates is freed
+     even when an error occurs, with no special effort required.
+
+     By contrast, the previous definition of 'open2' (which uses
+     'malloc' and 'free') would develop a memory leak if it were changed
+     in this way.  Even if you are willing to make more changes to fix
+     it, there is no easy way to do so.
+
+
+File: libc.info,  Node: Disadvantages of Alloca,  Next: GNU C Variable-Size Arrays,  Prev: Advantages of Alloca,  Up: Variable Size Automatic
+
+3.2.5.3 Disadvantages of 'alloca'
+.................................
+
+These are the disadvantages of 'alloca' in comparison with 'malloc':
+
+   * If you try to allocate more memory than the machine can provide,
+     you don't get a clean error message.  Instead you get a fatal
+     signal like the one you would get from an infinite recursion;
+     probably a segmentation violation (*note Program Error Signals::).
+
+   * Some non-GNU systems fail to support 'alloca', so it is less
+     portable.  However, a slower emulation of 'alloca' written in C is
+     available for use on systems with this deficiency.
+
+
+File: libc.info,  Node: GNU C Variable-Size Arrays,  Prev: Disadvantages of Alloca,  Up: Variable Size Automatic
+
+3.2.5.4 GNU C Variable-Size Arrays
+..................................
+
+In GNU C, you can replace most uses of 'alloca' with an array of
+variable size.  Here is how 'open2' would look then:
+
+     int open2 (char *str1, char *str2, int flags, int mode)
+     {
+       char name[strlen (str1) + strlen (str2) + 1];
+       stpcpy (stpcpy (name, str1), str2);
+       return open (name, flags, mode);
+     }
+
+   But 'alloca' is not always equivalent to a variable-sized array, for
+several reasons:
+
+   * A variable size array's space is freed at the end of the scope of
+     the name of the array.  The space allocated with 'alloca' remains
+     until the end of the function.
+
+   * It is possible to use 'alloca' within a loop, allocating an
+     additional block on each iteration.  This is impossible with
+     variable-sized arrays.
+
+   *NB:* If you mix use of 'alloca' and variable-sized arrays within one
+function, exiting a scope in which a variable-sized array was declared
+frees all blocks allocated with 'alloca' during the execution of that
+scope.
+
+
+File: libc.info,  Node: Resizing the Data Segment,  Next: Locking Pages,  Prev: Memory Allocation,  Up: Memory
+
+3.3 Resizing the Data Segment
+=============================
+
+The symbols in this section are declared in 'unistd.h'.
+
+   You will not normally use the functions in this section, because the
+functions described in *note Memory Allocation:: are easier to use.
+Those are interfaces to a GNU C Library memory allocator that uses the
+functions below itself.  The functions below are simple interfaces to
+system calls.
+
+ -- Function: int brk (void *ADDR)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
+     'brk' sets the high end of the calling process' data segment to
+     ADDR.
+
+     The address of the end of a segment is defined to be the address of
+     the last byte in the segment plus 1.
+
+     The function has no effect if ADDR is lower than the low end of the
+     data segment.  (This is considered success, by the way).
+
+     The function fails if it would cause the data segment to overlap
+     another segment or exceed the process' data storage limit (*note
+     Limits on Resources::).
+
+     The function is named for a common historical case where data
+     storage and the stack are in the same segment.  Data storage
+     allocation grows upward from the bottom of the segment while the
+     stack grows downward toward it from the top of the segment and the
+     curtain between them is called the "break".
+
+     The return value is zero on success.  On failure, the return value
+     is '-1' and 'errno' is set accordingly.  The following 'errno'
+     values are specific to this function:
+
+     'ENOMEM'
+          The request would cause the data segment to overlap another
+          segment or exceed the process' data storage limit.
+
+ -- Function: void *sbrk (ptrdiff_t DELTA)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
+     This function is the same as 'brk' except that you specify the new
+     end of the data segment as an offset DELTA from the current end and
+     on success the return value is the address of the resulting end of
+     the data segment instead of zero.
+
+     This means you can use 'sbrk(0)' to find out what the current end
+     of the data segment is.
+
+
+File: libc.info,  Node: Locking Pages,  Prev: Resizing the Data Segment,  Up: Memory
+
+3.4 Locking Pages
+=================
+
+You can tell the system to associate a particular virtual memory page
+with a real page frame and keep it that way -- i.e., cause the page to
+be paged in if it isn't already and mark it so it will never be paged
+out and consequently will never cause a page fault.  This is called
+"locking" a page.
+
+   The functions in this chapter lock and unlock the calling process'
+pages.
+
+* Menu:
+
+* Why Lock Pages::                Reasons to read this section.
+* Locked Memory Details::         Everything you need to know locked
+                                    memory
+* Page Lock Functions::           Here's how to do it.
+
+
+File: libc.info,  Node: Why Lock Pages,  Next: Locked Memory Details,  Up: Locking Pages
+
+3.4.1 Why Lock Pages
+--------------------
+
+Because page faults cause paged out pages to be paged in transparently,
+a process rarely needs to be concerned about locking pages.  However,
+there are two reasons people sometimes are:
+
+   * Speed.  A page fault is transparent only insofar as the process is
+     not sensitive to how long it takes to do a simple memory access.
+     Time-critical processes, especially realtime processes, may not be
+     able to wait or may not be able to tolerate variance in execution
+     speed.
+
+     A process that needs to lock pages for this reason probably also
+     needs priority among other processes for use of the CPU. *Note
+     Priority::.
+
+     In some cases, the programmer knows better than the system's demand
+     paging allocator which pages should remain in real memory to
+     optimize system performance.  In this case, locking pages can help.
+
+   * Privacy.  If you keep secrets in virtual memory and that virtual
+     memory gets paged out, that increases the chance that the secrets
+     will get out.  If a password gets written out to disk swap space,
+     for example, it might still be there long after virtual and real
+     memory have been wiped clean.
+
+   Be aware that when you lock a page, that's one fewer page frame that
+can be used to back other virtual memory (by the same or other
+processes), which can mean more page faults, which means the system runs
+more slowly.  In fact, if you lock enough memory, some programs may not
+be able to run at all for lack of real memory.
+
+
+File: libc.info,  Node: Locked Memory Details,  Next: Page Lock Functions,  Prev: Why Lock Pages,  Up: Locking Pages
+
+3.4.2 Locked Memory Details
+---------------------------
+
+A memory lock is associated with a virtual page, not a real frame.  The
+paging rule is: If a frame backs at least one locked page, don't page it
+out.
+
+   Memory locks do not stack.  I.e., you can't lock a particular page
+twice so that it has to be unlocked twice before it is truly unlocked.
+It is either locked or it isn't.
+
+   A memory lock persists until the process that owns the memory
+explicitly unlocks it.  (But process termination and exec cause the
+virtual memory to cease to exist, which you might say means it isn't
+locked any more).
+
+   Memory locks are not inherited by child processes.  (But note that on
+a modern Unix system, immediately after a fork, the parent's and the
+child's virtual address space are backed by the same real page frames,
+so the child enjoys the parent's locks).  *Note Creating a Process::.
+
+   Because of its ability to impact other processes, only the superuser
+can lock a page.  Any process can unlock its own page.
+
+   The system sets limits on the amount of memory a process can have
+locked and the amount of real memory it can have dedicated to it.  *Note
+Limits on Resources::.
+
+   In Linux, locked pages aren't as locked as you might think.  Two
+virtual pages that are not shared memory can nonetheless be backed by
+the same real frame.  The kernel does this in the name of efficiency
+when it knows both virtual pages contain identical data, and does it
+even if one or both of the virtual pages are locked.
+
+   But when a process modifies one of those pages, the kernel must get
+it a separate frame and fill it with the page's data.  This is known as
+a "copy-on-write page fault".  It takes a small amount of time and in a
+pathological case, getting that frame may require I/O.
+
+   To make sure this doesn't happen to your program, don't just lock the
+pages.  Write to them as well, unless you know you won't write to them
+ever.  And to make sure you have pre-allocated frames for your stack,
+enter a scope that declares a C automatic variable larger than the
+maximum stack size you will need, set it to something, then return from
+its scope.
+
+
+File: libc.info,  Node: Page Lock Functions,  Prev: Locked Memory Details,  Up: Locking Pages
+
+3.4.3 Functions To Lock And Unlock Pages
+----------------------------------------
+
+The symbols in this section are declared in 'sys/mman.h'.  These
+functions are defined by POSIX.1b, but their availability depends on
+your kernel.  If your kernel doesn't allow these functions, they exist
+but always fail.  They _are_ available with a Linux kernel.
+
+   *Portability Note:* POSIX.1b requires that when the 'mlock' and
+'munlock' functions are available, the file 'unistd.h' define the macro
+'_POSIX_MEMLOCK_RANGE' and the file 'limits.h' define the macro
+'PAGESIZE' to be the size of a memory page in bytes.  It requires that
+when the 'mlockall' and 'munlockall' functions are available, the
+'unistd.h' file define the macro '_POSIX_MEMLOCK'.  The GNU C Library
+conforms to this requirement.
+
+ -- Function: int mlock (const void *ADDR, size_t LEN)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
+     'mlock' locks a range of the calling process' virtual pages.
+
+     The range of memory starts at address ADDR and is LEN bytes long.
+     Actually, since you must lock whole pages, it is the range of pages
+     that include any part of the specified range.
+
+     When the function returns successfully, each of those pages is
+     backed by (connected to) a real frame (is resident) and is marked
+     to stay that way.  This means the function may cause page-ins and
+     have to wait for them.
+
+     When the function fails, it does not affect the lock status of any
+     pages.
+
+     The return value is zero if the function succeeds.  Otherwise, it
+     is '-1' and 'errno' is set accordingly.  'errno' values specific to
+     this function are:
+
+     'ENOMEM'
+             * At least some of the specified address range does not
+               exist in the calling process' virtual address space.
+             * The locking would cause the process to exceed its locked
+               page limit.
+
+     'EPERM'
+          The calling process is not superuser.
+
+     'EINVAL'
+          LEN is not positive.
+
+     'ENOSYS'
+          The kernel does not provide 'mlock' capability.
+
+     You can lock _all_ a process' memory with 'mlockall'.  You unlock
+     memory with 'munlock' or 'munlockall'.
+
+     To avoid all page faults in a C program, you have to use
+     'mlockall', because some of the memory a program uses is hidden
+     from the C code, e.g.  the stack and automatic variables, and you
+     wouldn't know what address to tell 'mlock'.
+
+ -- Function: int munlock (const void *ADDR, size_t LEN)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
+     'munlock' unlocks a range of the calling process' virtual pages.
+
+     'munlock' is the inverse of 'mlock' and functions completely
+     analogously to 'mlock', except that there is no 'EPERM' failure.
+
+ -- Function: int mlockall (int FLAGS)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
+     'mlockall' locks all the pages in a process' virtual memory address
+     space, and/or any that are added to it in the future.  This
+     includes the pages of the code, data and stack segment, as well as
+     shared libraries, user space kernel data, shared memory, and memory
+     mapped files.
+
+     FLAGS is a string of single bit flags represented by the following
+     macros.  They tell 'mlockall' which of its functions you want.  All
+     other bits must be zero.
+
+     'MCL_CURRENT'
+          Lock all pages which currently exist in the calling process'
+          virtual address space.
+
+     'MCL_FUTURE'
+          Set a mode such that any pages added to the process' virtual
+          address space in the future will be locked from birth.  This
+          mode does not affect future address spaces owned by the same
+          process so exec, which replaces a process' address space,
+          wipes out 'MCL_FUTURE'.  *Note Executing a File::.
+
+     When the function returns successfully, and you specified
+     'MCL_CURRENT', all of the process' pages are backed by (connected
+     to) real frames (they are resident) and are marked to stay that
+     way.  This means the function may cause page-ins and have to wait
+     for them.
+
+     When the process is in 'MCL_FUTURE' mode because it successfully
+     executed this function and specified 'MCL_CURRENT', any system call
+     by the process that requires space be added to its virtual address
+     space fails with 'errno' = 'ENOMEM' if locking the additional space
+     would cause the process to exceed its locked page limit.  In the
+     case that the address space addition that can't be accommodated is
+     stack expansion, the stack expansion fails and the kernel sends a
+     'SIGSEGV' signal to the process.
+
+     When the function fails, it does not affect the lock status of any
+     pages or the future locking mode.
+
+     The return value is zero if the function succeeds.  Otherwise, it
+     is '-1' and 'errno' is set accordingly.  'errno' values specific to
+     this function are:
+
+     'ENOMEM'
+             * At least some of the specified address range does not
+               exist in the calling process' virtual address space.
+             * The locking would cause the process to exceed its locked
+               page limit.
+
+     'EPERM'
+          The calling process is not superuser.
+
+     'EINVAL'
+          Undefined bits in FLAGS are not zero.
+
+     'ENOSYS'
+          The kernel does not provide 'mlockall' capability.
+
+     You can lock just specific pages with 'mlock'.  You unlock pages
+     with 'munlockall' and 'munlock'.
+
+ -- Function: int munlockall (void)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
+     'munlockall' unlocks every page in the calling process' virtual
+     address space and turn off 'MCL_FUTURE' future locking mode.
+
+     The return value is zero if the function succeeds.  Otherwise, it
+     is '-1' and 'errno' is set accordingly.  The only way this function
+     can fail is for generic reasons that all functions and system calls
+     can fail, so there are no specific 'errno' values.
+
+
 File: libc.info,  Node: Character Handling,  Next: String and Array Utilities,  Prev: Memory,  Up: Top
 
 4 Character Handling
@@ -1765,14 +2748,23 @@ instead of a real character.
    These functions are declared in the header file 'ctype.h'.
 
  -- Function: int islower (int C)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      Returns true if C is a lower-case letter.  The letter need not be
      from the Latin alphabet, any alphabet representable is valid.
 
  -- Function: int isupper (int C)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      Returns true if C is an upper-case letter.  The letter need not be
      from the Latin alphabet, any alphabet representable is valid.
 
  -- Function: int isalpha (int C)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      Returns true if C is an alphabetic character (a letter).  If
      'islower' or 'isupper' is true of a character, then 'isalpha' is
      also true.
@@ -1783,23 +2775,38 @@ instead of a real character.
      additional characters.
 
  -- Function: int isdigit (int C)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      Returns true if C is a decimal digit ('0' through '9').
 
  -- Function: int isalnum (int C)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      Returns true if C is an alphanumeric character (a letter or
      number); in other words, if either 'isalpha' or 'isdigit' is true
      of a character, then 'isalnum' is also true.
 
  -- Function: int isxdigit (int C)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      Returns true if C is a hexadecimal digit.  Hexadecimal digits
      include the normal decimal digits '0' through '9' and the letters
      'A' through 'F' and 'a' through 'f'.
 
  -- Function: int ispunct (int C)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      Returns true if C is a punctuation character.  This means any
      printing character that is not alphanumeric or a space character.
 
  -- Function: int isspace (int C)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      Returns true if C is a "whitespace" character.  In the standard
      '"C"' locale, 'isspace' returns true for only the standard
      whitespace characters:
@@ -1823,24 +2830,39 @@ instead of a real character.
           vertical tab
 
  -- Function: int isblank (int C)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      Returns true if C is a blank character; that is, a space or a tab.
      This function was originally a GNU extension, but was added in
      ISO C99.
 
  -- Function: int isgraph (int C)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      Returns true if C is a graphic character; that is, a character that
      has a glyph associated with it.  The whitespace characters are not
      considered graphic.
 
  -- Function: int isprint (int C)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      Returns true if C is a printing character.  Printing characters
      include all the graphic characters, plus the space (' ') character.
 
  -- Function: int iscntrl (int C)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      Returns true if C is a control character (that is, a character that
      is not a printing character).
 
  -- Function: int isascii (int C)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      Returns true if C is a 7-bit 'unsigned char' value that fits into
      the US/UK ASCII character set.  This function is a BSD extension
      and is also an SVID extension.
@@ -1869,25 +2891,40 @@ write 'islower(c) ? toupper(c) : c' rather than just 'toupper(c)'.
    These functions are declared in the header file 'ctype.h'.
 
  -- Function: int tolower (int C)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      If C is an upper-case letter, 'tolower' returns the corresponding
      lower-case letter.  If C is not an upper-case letter, C is returned
      unchanged.
 
  -- Function: int toupper (int C)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      If C is a lower-case letter, 'toupper' returns the corresponding
      upper-case letter.  Otherwise C is returned unchanged.
 
  -- Function: int toascii (int C)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This function converts C to a 7-bit 'unsigned char' value that fits
      into the US/UK ASCII character set, by clearing the high-order
      bits.  This function is a BSD extension and is also an SVID
      extension.
 
  -- Function: int _tolower (int C)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This is identical to 'tolower', and is provided for compatibility
      with the SVID. *Note SVID::.
 
  -- Function: int _toupper (int C)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This is identical to 'toupper', and is provided for compatibility
      with the SVID.
 
@@ -1928,6 +2965,9 @@ objects can be defined.
      This type is defined in 'wctype.h'.
 
  -- Function: wctype_t wctype (const char *PROPERTY)
+     Preliminary: | MT-Safe locale | AS-Safe | AC-Safe | *Note POSIX
+     Safety Concepts::.
+
      The 'wctype' returns a value representing a class of wide
      characters which is identified by the string PROPERTY.  Beside some
      standard properties each locale can define its own ones.  In case
@@ -1946,6 +2986,9 @@ objects can be defined.
 classes the ISO C standard defines a completely new function.
 
  -- Function: int iswctype (wint_t WC, wctype_t DESC)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This function returns a nonzero value if WC is in the character
      class specified by DESC.  DESC must previously be returned by a
      successful call to 'wctype'.
@@ -1959,6 +3002,9 @@ situations it is desirable to construct the property strings, and then
 it is important that 'wctype' can also handle the standard classes.
 
  -- Function: int iswalnum (wint_t WC)
+     Preliminary: | MT-Safe locale | AS-Safe | AC-Safe | *Note POSIX
+     Safety Concepts::.
+
      This function returns a nonzero value if WC is an alphanumeric
      character (a letter or number); in other words, if either
      'iswalpha' or 'iswdigit' is true of a character, then 'iswalnum' is
@@ -1971,6 +3017,9 @@ it is important that 'wctype' can also handle the standard classes.
      It is declared in 'wctype.h'.
 
  -- Function: int iswalpha (wint_t WC)
+     Preliminary: | MT-Safe locale | AS-Safe | AC-Safe | *Note POSIX
+     Safety Concepts::.
+
      Returns true if WC is an alphabetic character (a letter).  If
      'iswlower' or 'iswupper' is true of a character, then 'iswalpha' is
      also true.
@@ -1987,6 +3036,9 @@ it is important that 'wctype' can also handle the standard classes.
      It is declared in 'wctype.h'.
 
  -- Function: int iswcntrl (wint_t WC)
+     Preliminary: | MT-Safe locale | AS-Safe | AC-Safe | *Note POSIX
+     Safety Concepts::.
+
      Returns true if WC is a control character (that is, a character
      that is not a printing character).
 
@@ -1997,6 +3049,9 @@ it is important that 'wctype' can also handle the standard classes.
      It is declared in 'wctype.h'.
 
  -- Function: int iswdigit (wint_t WC)
+     Preliminary: | MT-Safe locale | AS-Safe | AC-Safe | *Note POSIX
+     Safety Concepts::.
+
      Returns true if WC is a digit (e.g., '0' through '9').  Please note
      that this function does not only return a nonzero value for
      _decimal_ digits, but for all kinds of digits.  A consequence is
@@ -2017,6 +3072,9 @@ it is important that 'wctype' can also handle the standard classes.
      It is declared in 'wctype.h'.
 
  -- Function: int iswgraph (wint_t WC)
+     Preliminary: | MT-Safe locale | AS-Safe | AC-Safe | *Note POSIX
+     Safety Concepts::.
+
      Returns true if WC is a graphic character; that is, a character
      that has a glyph associated with it.  The whitespace characters are
      not considered graphic.
@@ -2028,6 +3086,9 @@ it is important that 'wctype' can also handle the standard classes.
      It is declared in 'wctype.h'.
 
  -- Function: int iswlower (wint_t WC)
+     Preliminary: | MT-Safe locale | AS-Safe | AC-Safe | *Note POSIX
+     Safety Concepts::.
+
      Returns true if WC is a lower-case letter.  The letter need not be
      from the Latin alphabet, any alphabet representable is valid.
 
@@ -2038,6 +3099,9 @@ it is important that 'wctype' can also handle the standard classes.
      It is declared in 'wctype.h'.
 
  -- Function: int iswprint (wint_t WC)
+     Preliminary: | MT-Safe locale | AS-Safe | AC-Safe | *Note POSIX
+     Safety Concepts::.
+
      Returns true if WC is a printing character.  Printing characters
      include all the graphic characters, plus the space (' ') character.
 
@@ -2048,6 +3112,9 @@ it is important that 'wctype' can also handle the standard classes.
      It is declared in 'wctype.h'.
 
  -- Function: int iswpunct (wint_t WC)
+     Preliminary: | MT-Safe locale | AS-Safe | AC-Safe | *Note POSIX
+     Safety Concepts::.
+
      Returns true if WC is a punctuation character.  This means any
      printing character that is not alphanumeric or a space character.
 
@@ -2058,6 +3125,9 @@ it is important that 'wctype' can also handle the standard classes.
      It is declared in 'wctype.h'.
 
  -- Function: int iswspace (wint_t WC)
+     Preliminary: | MT-Safe locale | AS-Safe | AC-Safe | *Note POSIX
+     Safety Concepts::.
+
      Returns true if WC is a "whitespace" character.  In the standard
      '"C"' locale, 'iswspace' returns true for only the standard
      whitespace characters:
@@ -2087,6 +3157,9 @@ it is important that 'wctype' can also handle the standard classes.
      It is declared in 'wctype.h'.
 
  -- Function: int iswupper (wint_t WC)
+     Preliminary: | MT-Safe locale | AS-Safe | AC-Safe | *Note POSIX
+     Safety Concepts::.
+
      Returns true if WC is an upper-case letter.  The letter need not be
      from the Latin alphabet, any alphabet representable is valid.
 
@@ -2097,6 +3170,9 @@ it is important that 'wctype' can also handle the standard classes.
      It is declared in 'wctype.h'.
 
  -- Function: int iswxdigit (wint_t WC)
+     Preliminary: | MT-Safe locale | AS-Safe | AC-Safe | *Note POSIX
+     Safety Concepts::.
+
      Returns true if WC is a hexadecimal digit.  Hexadecimal digits
      include the normal decimal digits '0' through '9' and the letters
      'A' through 'F' and 'a' through 'f'.
@@ -2112,6 +3188,9 @@ the ISO C standard but which is available as a version for single byte
 characters as well.
 
  -- Function: int iswblank (wint_t WC)
+     Preliminary: | MT-Safe locale | AS-Safe | AC-Safe | *Note POSIX
+     Safety Concepts::.
+
      Returns true if WC is a blank character; that is, a space or a tab.
      This function was originally a GNU extension, but was added in
      ISO C99.  It is declared in 'wchar.h'.
@@ -2196,6 +3275,9 @@ locale data files.
      This type is defined in 'wctype.h'.
 
  -- Function: wctrans_t wctrans (const char *PROPERTY)
+     Preliminary: | MT-Safe locale | AS-Safe | AC-Safe | *Note POSIX
+     Safety Concepts::.
+
      The 'wctrans' function has to be used to find out whether a named
      mapping is defined in the current locale selected for the
      'LC_CTYPE' category.  If the returned value is non-zero, you can
@@ -2210,6 +3292,9 @@ locale data files.
      These functions are declared in 'wctype.h'.
 
  -- Function: wint_t towctrans (wint_t WC, wctrans_t DESC)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      'towctrans' maps the input character WC according to the rules of
      the mapping for which DESC is a descriptor, and returns the value
      it finds.  DESC must be obtained by a successful call to 'wctrans'.
@@ -2221,6 +3306,9 @@ convenient shortcuts so that it is not necessary to call 'wctrans' for
 them.
 
  -- Function: wint_t towlower (wint_t WC)
+     Preliminary: | MT-Safe locale | AS-Safe | AC-Safe | *Note POSIX
+     Safety Concepts::.
+
      If WC is an upper-case letter, 'towlower' returns the corresponding
      lower-case letter.  If WC is not an upper-case letter, WC is
      returned unchanged.
@@ -2232,6 +3320,9 @@ them.
      This function is declared in 'wctype.h'.
 
  -- Function: wint_t towupper (wint_t WC)
+     Preliminary: | MT-Safe locale | AS-Safe | AC-Safe | *Note POSIX
+     Safety Concepts::.
+
      If WC is a lower-case letter, 'towupper' returns the corresponding
      upper-case letter.  Otherwise WC is returned unchanged.
 
@@ -2432,7 +3523,7 @@ should be used for wide character arrays with known size.
 
    Some of the memory and string functions take single characters as
 arguments.  Since a value of type 'char' is automatically promoted into
-an value of type 'int' when used as a parameter, the functions are
+a value of type 'int' when used as a parameter, the functions are
 declared with 'int' as the type of the parameter in question.  In case
 of the wide character function the situation is similarly: the parameter
 type for a single wide character is 'wint_t' and not 'wchar_t'.  This
@@ -2451,6 +3542,9 @@ You can get the length of a string using the 'strlen' function.  This
 function is declared in the header file 'string.h'.
 
  -- Function: size_t strlen (const char *S)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The 'strlen' function returns the length of the null-terminated
      string S in bytes.  (In other words, it returns the offset of the
      terminating null character within the array.)
@@ -2508,6 +3602,9 @@ function is declared in the header file 'string.h'.
    The wide character equivalent is declared in 'wchar.h'.
 
  -- Function: size_t wcslen (const wchar_t *WS)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The 'wcslen' function is the wide character equivalent to 'strlen'.
      The return value is the number of wide characters in the wide
      character string pointed to by WS (this is also the offset of the
@@ -2520,6 +3617,9 @@ function is declared in the header file 'string.h'.
      This function was introduced in Amendment 1 to ISO C90.
 
  -- Function: size_t strnlen (const char *S, size_t MAXLEN)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The 'strnlen' function returns the length of the string S in bytes
      if this length is smaller than MAXLEN bytes.  Otherwise it returns
      MAXLEN.  Therefore this function is equivalent to '(strlen (S) <
@@ -2535,6 +3635,9 @@ function is declared in the header file 'string.h'.
      This function is a GNU extension and is declared in 'string.h'.
 
  -- Function: size_t wcsnlen (const wchar_t *WS, size_t MAXLEN)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      'wcsnlen' is the wide character equivalent to 'strnlen'.  The
      MAXLEN parameter specifies the maximum number of wide characters.
 
@@ -2574,6 +3677,9 @@ Output Functions::) and 'scanf' (*note Formatted Input Functions::).
 
  -- Function: void * memcpy (void *restrict TO, const void *restrict
           FROM, size_t SIZE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The 'memcpy' function copies SIZE bytes from the object beginning
      at FROM into the object beginning at TO.  The behavior of this
      function is undefined if the two arrays TO and FROM overlap; use
@@ -2591,6 +3697,9 @@ Output Functions::) and 'scanf' (*note Formatted Input Functions::).
 
  -- Function: wchar_t * wmemcpy (wchar_t *restrict WTO, const wchar_t
           *restrict WFROM, size_t SIZE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The 'wmemcpy' function copies SIZE wide characters from the object
      beginning at WFROM into the object beginning at WTO.  The behavior
      of this function is undefined if the two arrays WTO and WFROM
@@ -2612,6 +3721,9 @@ Output Functions::) and 'scanf' (*note Formatted Input Functions::).
 
  -- Function: void * mempcpy (void *restrict TO, const void *restrict
           FROM, size_t SIZE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The 'mempcpy' function is nearly identical to the 'memcpy'
      function.  It copies SIZE bytes from the object beginning at 'from'
      into the object pointed to by TO.  But instead of returning the
@@ -2635,6 +3747,9 @@ Output Functions::) and 'scanf' (*note Formatted Input Functions::).
 
  -- Function: wchar_t * wmempcpy (wchar_t *restrict WTO, const wchar_t
           *restrict WFROM, size_t SIZE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The 'wmempcpy' function is nearly identical to the 'wmemcpy'
      function.  It copies SIZE wide characters from the object beginning
      at 'wfrom' into the object pointed to by WTO.  But instead of
@@ -2658,6 +3773,9 @@ Output Functions::) and 'scanf' (*note Formatted Input Functions::).
      This function is a GNU extension.
 
  -- Function: void * memmove (void *TO, const void *FROM, size_t SIZE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      'memmove' copies the SIZE bytes at FROM into the SIZE bytes at TO,
      even if those two blocks of space overlap.  In the case of overlap,
      'memmove' is careful to copy the original values of the bytes in
@@ -2668,6 +3786,9 @@ Output Functions::) and 'scanf' (*note Formatted Input Functions::).
 
  -- Function: wchar_t * wmemmove (wchar_t *WTO, const wchar_t *WFROM,
           size_t SIZE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      'wmemmove' copies the SIZE wide characters at WFROM into the SIZE
      wide characters at WTO, even if those two blocks of space overlap.
      In the case of overlap, 'memmove' is careful to copy the original
@@ -2690,24 +3811,36 @@ Output Functions::) and 'scanf' (*note Formatted Input Functions::).
 
  -- Function: void * memccpy (void *restrict TO, const void *restrict
           FROM, int C, size_t SIZE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This function copies no more than SIZE bytes from FROM to TO,
      stopping if a byte matching C is found.  The return value is a
      pointer into TO one byte past where C was copied, or a null pointer
      if no byte matching C appeared in the first SIZE bytes of FROM.
 
  -- Function: void * memset (void *BLOCK, int C, size_t SIZE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This function copies the value of C (converted to an 'unsigned
      char') into each of the first SIZE bytes of the object beginning at
      BLOCK.  It returns the value of BLOCK.
 
  -- Function: wchar_t * wmemset (wchar_t *BLOCK, wchar_t WC, size_t
           SIZE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This function copies the value of WC into each of the first SIZE
      wide characters of the object beginning at BLOCK.  It returns the
      value of BLOCK.
 
  -- Function: char * strcpy (char *restrict TO, const char *restrict
           FROM)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This copies characters from the string FROM (up to and including
      the terminating null character) into the string TO.  Like 'memcpy',
      this function has undefined results if the strings overlap.  The
@@ -2715,6 +3848,9 @@ Output Functions::) and 'scanf' (*note Formatted Input Functions::).
 
  -- Function: wchar_t * wcscpy (wchar_t *restrict WTO, const wchar_t
           *restrict WFROM)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This copies wide characters from the string WFROM (up to and
      including the terminating null wide character) into the string WTO.
      Like 'wmemcpy', this function has undefined results if the strings
@@ -2722,6 +3858,9 @@ Output Functions::) and 'scanf' (*note Formatted Input Functions::).
 
  -- Function: char * strncpy (char *restrict TO, const char *restrict
           FROM, size_t SIZE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This function is similar to 'strcpy' but always copies exactly SIZE
      characters into TO.
 
@@ -2746,6 +3885,9 @@ Output Functions::) and 'scanf' (*note Formatted Input Functions::).
 
  -- Function: wchar_t * wcsncpy (wchar_t *restrict WTO, const wchar_t
           *restrict WFROM, size_t SIZE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This function is similar to 'wcscpy' but always copies exactly SIZE
      wide characters into WTO.
 
@@ -2769,6 +3911,9 @@ Output Functions::) and 'scanf' (*note Formatted Input Functions::).
      wide characters.
 
  -- Function: char * strdup (const char *S)
+     Preliminary: | MT-Safe | AS-Unsafe heap | AC-Unsafe mem | *Note
+     POSIX Safety Concepts::.
+
      This function copies the null-terminated string S into a newly
      allocated string.  The string is allocated using 'malloc'; see
      *note Unconstrained Allocation::.  If 'malloc' cannot allocate
@@ -2776,6 +3921,9 @@ Output Functions::) and 'scanf' (*note Formatted Input Functions::).
      Otherwise it returns a pointer to the new string.
 
  -- Function: wchar_t * wcsdup (const wchar_t *WS)
+     Preliminary: | MT-Safe | AS-Unsafe heap | AC-Unsafe mem | *Note
+     POSIX Safety Concepts::.
+
      This function copies the null-terminated wide character string WS
      into a newly allocated string.  The string is allocated using
      'malloc'; see *note Unconstrained Allocation::.  If 'malloc' cannot
@@ -2785,6 +3933,9 @@ Output Functions::) and 'scanf' (*note Formatted Input Functions::).
      This function is a GNU extension.
 
  -- Function: char * strndup (const char *S, size_t SIZE)
+     Preliminary: | MT-Safe | AS-Unsafe heap | AC-Unsafe mem | *Note
+     POSIX Safety Concepts::.
+
      This function is similar to 'strdup' but always copies at most SIZE
      characters into the newly allocated string.
 
@@ -2799,6 +3950,9 @@ Output Functions::) and 'scanf' (*note Formatted Input Functions::).
 
  -- Function: char * stpcpy (char *restrict TO, const char *restrict
           FROM)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This function is like 'strcpy', except that it returns a pointer to
      the end of the string TO (that is, the address of the terminating
      null character 'to + strlen (from)') rather than the beginning.
@@ -2830,6 +3984,9 @@ Output Functions::) and 'scanf' (*note Formatted Input Functions::).
 
  -- Function: wchar_t * wcpcpy (wchar_t *restrict WTO, const wchar_t
           *restrict WFROM)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This function is like 'wcscpy', except that it returns a pointer to
      the end of the string WTO (that is, the address of the terminating
      null character 'wto + strlen (wfrom)') rather than the beginning.
@@ -2843,10 +4000,13 @@ Output Functions::) and 'scanf' (*note Formatted Input Functions::).
 
  -- Function: char * stpncpy (char *restrict TO, const char *restrict
           FROM, size_t SIZE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This function is similar to 'stpcpy' but copies always exactly SIZE
      characters into TO.
 
-     If the length of FROM is more then SIZE, then 'stpncpy' copies just
+     If the length of FROM is more than SIZE, then 'stpncpy' copies just
      the first SIZE characters and returns a pointer to the character
      directly following the one which was copied last.  Note that in
      this case there is no null terminator written into TO.
@@ -2866,10 +4026,13 @@ Output Functions::) and 'scanf' (*note Formatted Input Functions::).
 
  -- Function: wchar_t * wcpncpy (wchar_t *restrict WTO, const wchar_t
           *restrict WFROM, size_t SIZE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This function is similar to 'wcpcpy' but copies always exactly
      WSIZE characters into WTO.
 
-     If the length of WFROM is more then SIZE, then 'wcpncpy' copies
+     If the length of WFROM is more than SIZE, then 'wcpncpy' copies
      just the first SIZE wide characters and returns a pointer to the
      wide character directly following the last non-null wide character
      which was copied last.  Note that in this case there is no null
@@ -2890,6 +4053,9 @@ Output Functions::) and 'scanf' (*note Formatted Input Functions::).
      'wcpncpy' is a GNU extension and is declared in 'wchar.h'.
 
  -- Macro: char * strdupa (const char *S)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This macro is similar to 'strdup' but allocates the new string
      using 'alloca' instead of 'malloc' (*note Variable Size
      Automatic::).  This means of course the returned string has the
@@ -2929,6 +4095,9 @@ Output Functions::) and 'scanf' (*note Formatted Input Functions::).
      This function is only available if GNU CC is used.
 
  -- Macro: char * strndupa (const char *S, size_t SIZE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This function is similar to 'strndup' but like 'strdupa' it
      allocates the new string using 'alloca' *note Variable Size
      Automatic::.  The same advantages and limitations of 'strdupa' are
@@ -2942,6 +4111,9 @@ Output Functions::) and 'scanf' (*note Formatted Input Functions::).
 
  -- Function: char * strcat (char *restrict TO, const char *restrict
           FROM)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The 'strcat' function is similar to 'strcpy', except that the
      characters from FROM are concatenated or appended to the end of TO,
      instead of overwriting it.  That is, the first character from FROM
@@ -2960,6 +4132,9 @@ Output Functions::) and 'scanf' (*note Formatted Input Functions::).
 
  -- Function: wchar_t * wcscat (wchar_t *restrict WTO, const wchar_t
           *restrict WFROM)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The 'wcscat' function is similar to 'wcscpy', except that the
      characters from WFROM are concatenated or appended to the end of
      WTO, instead of overwriting it.  That is, the first character from
@@ -3099,6 +4274,9 @@ almost always unnecessary to use 'strcat'.
 
  -- Function: char * strncat (char *restrict TO, const char *restrict
           FROM, size_t SIZE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This function is like 'strcat' except that not more than SIZE
      characters from FROM are appended to the end of TO.  A single null
      character is also always appended to TO, so the total allocated
@@ -3110,8 +4288,8 @@ almost always unnecessary to use 'strcat'.
           char *
           strncat (char *to, const char *from, size_t size)
           {
-            to[strlen (to) + size] = '\0';
-            strncpy (to + strlen (to), from, size);
+            memcpy (to + strlen (to), from, strnlen (from, size));
+            to[strlen (to) + strnlen (from, size)] = '\0';
             return to;
           }
 
@@ -3119,6 +4297,9 @@ almost always unnecessary to use 'strcat'.
 
  -- Function: wchar_t * wcsncat (wchar_t *restrict WTO, const wchar_t
           *restrict WFROM, size_t SIZE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This function is like 'wcscat' except that not more than SIZE
      characters from FROM are appended to the end of TO.  A single null
      character is also always appended to TO, so the total allocated
@@ -3131,8 +4312,8 @@ almost always unnecessary to use 'strcat'.
           wcsncat (wchar_t *restrict wto, const wchar_t *restrict wfrom,
                    size_t size)
           {
-            wto[wcslen (to) + size] = L'\0';
-            wcsncpy (wto + wcslen (wto), wfrom, size);
+            memcpy (wto + wcslen (wto), wfrom, wcsnlen (wfrom, size) * sizeof (wchar_t));
+            wto[wcslen (to) + wcsnlen (wfrom, size)] = '\0';
             return wto;
           }
 
@@ -3166,12 +4347,18 @@ The output produced by this program looks like:
      hello, wo
 
  -- Function: void bcopy (const void *FROM, void *TO, size_t SIZE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This is a partially obsolete alternative for 'memmove', derived
      from BSD. Note that it is not quite equivalent to 'memmove',
      because the arguments are not in the same order and there is no
      return value.
 
  -- Function: void bzero (void *BLOCK, size_t SIZE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This is a partially obsolete alternative for 'memset', derived from
      BSD. Note that it is not as general as 'memset', because the only
      value it can store is zero.
@@ -3201,6 +4388,9 @@ This is canonically done with an expression like '! strcmp (s1, s2)'.
    All of these functions are declared in the header file 'string.h'.
 
  -- Function: int memcmp (const void *A1, const void *A2, size_t SIZE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The function 'memcmp' compares the SIZE bytes of memory beginning
      at A1 against the SIZE bytes of memory beginning at A2.  The value
      returned has the same sign as the difference between the first
@@ -3211,6 +4401,9 @@ This is canonically done with an expression like '! strcmp (s1, s2)'.
 
  -- Function: int wmemcmp (const wchar_t *A1, const wchar_t *A2, size_t
           SIZE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The function 'wmemcmp' compares the SIZE wide characters beginning
      at A1 against the SIZE wide characters beginning at A2.  The value
      returned is smaller than or larger than zero depending on whether
@@ -3256,6 +4449,9 @@ you are better off writing a specialized comparison function to compare
 'struct foo' objects instead of comparing them with 'memcmp'.
 
  -- Function: int strcmp (const char *S1, const char *S2)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The 'strcmp' function compares the string S1 against S2, returning
      a value that has the same sign as the difference between the first
      differing pair of characters (interpreted as 'unsigned char'
@@ -3272,6 +4468,8 @@ you are better off writing a specialized comparison function to compare
      'strcoll'.
 
  -- Function: int wcscmp (const wchar_t *WS1, const wchar_t *WS2)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
 
      The 'wcscmp' function compares the wide character string WS1
      against WS2.  The value returned is smaller than or larger than
@@ -3289,6 +4487,9 @@ you are better off writing a specialized comparison function to compare
      'wcscoll'.
 
  -- Function: int strcasecmp (const char *S1, const char *S2)
+     Preliminary: | MT-Safe locale | AS-Safe | AC-Safe | *Note POSIX
+     Safety Concepts::.
+
      This function is like 'strcmp', except that differences in case are
      ignored.  How uppercase and lowercase characters are related is
      determined by the currently selected locale.  In the standard '"C"'
@@ -3298,6 +4499,9 @@ you are better off writing a specialized comparison function to compare
      'strcasecmp' is derived from BSD.
 
  -- Function: int wcscasecmp (const wchar_t *WS1, const wchar_t *WS2)
+     Preliminary: | MT-Safe locale | AS-Safe | AC-Safe | *Note POSIX
+     Safety Concepts::.
+
      This function is like 'wcscmp', except that differences in case are
      ignored.  How uppercase and lowercase characters are related is
      determined by the currently selected locale.  In the standard '"C"'
@@ -3307,6 +4511,9 @@ you are better off writing a specialized comparison function to compare
      'wcscasecmp' is a GNU extension.
 
  -- Function: int strncmp (const char *S1, const char *S2, size_t SIZE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This function is the similar to 'strcmp', except that no more than
      SIZE characters are compared.  In other words, if the two strings
      are the same in their first SIZE characters, the return value is
@@ -3314,12 +4521,18 @@ you are better off writing a specialized comparison function to compare
 
  -- Function: int wcsncmp (const wchar_t *WS1, const wchar_t *WS2,
           size_t SIZE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This function is the similar to 'wcscmp', except that no more than
      SIZE wide characters are compared.  In other words, if the two
      strings are the same in their first SIZE wide characters, the
      return value is zero.
 
  -- Function: int strncasecmp (const char *S1, const char *S2, size_t N)
+     Preliminary: | MT-Safe locale | AS-Safe | AC-Safe | *Note POSIX
+     Safety Concepts::.
+
      This function is like 'strncmp', except that differences in case
      are ignored.  Like 'strcasecmp', it is locale dependent how
      uppercase and lowercase characters are related.
@@ -3328,6 +4541,9 @@ you are better off writing a specialized comparison function to compare
 
  -- Function: int wcsncasecmp (const wchar_t *WS1, const wchar_t *S2,
           size_t N)
+     Preliminary: | MT-Safe locale | AS-Safe | AC-Safe | *Note POSIX
+     Safety Concepts::.
+
      This function is like 'wcsncmp', except that differences in case
      are ignored.  Like 'wcscasecmp', it is locale dependent how
      uppercase and lowercase characters are related.
@@ -3355,6 +4571,9 @@ values and ordering may differ.)
          => 0    /* The initial 5 characters are the same. */
 
  -- Function: int strverscmp (const char *S1, const char *S2)
+     Preliminary: | MT-Safe locale | AS-Safe | AC-Safe | *Note POSIX
+     Safety Concepts::.
+
      The 'strverscmp' function compares the string S1 against S2,
      considering them as holding indices/version numbers.  The return
      value follows the same conventions as found in the 'strcmp'
@@ -3397,6 +4616,9 @@ values and ordering may differ.)
      'strverscmp' is a GNU extension.
 
  -- Function: int bcmp (const void *A1, const void *A2, size_t SIZE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This is an obsolete alias for 'memcmp', derived from BSD.
 
 
@@ -3438,11 +4660,17 @@ strings just once, and subsequently compare the transformed strings with
 'strcmp' or 'wcscmp'.
 
  -- Function: int strcoll (const char *S1, const char *S2)
+     Preliminary: | MT-Safe locale | AS-Unsafe heap | AC-Unsafe mem |
+     *Note POSIX Safety Concepts::.
+
      The 'strcoll' function is similar to 'strcmp' but uses the
      collating sequence of the current locale for collation (the
      'LC_COLLATE' locale).
 
  -- Function: int wcscoll (const wchar_t *WS1, const wchar_t *WS2)
+     Preliminary: | MT-Safe locale | AS-Unsafe heap | AC-Unsafe mem |
+     *Note POSIX Safety Concepts::.
+
      The 'wcscoll' function is similar to 'wcscmp' but uses the
      collating sequence of the current locale for collation (the
      'LC_COLLATE' locale).
@@ -3460,7 +4688,7 @@ in this section, we will show a way to do this more efficiently using
      compare_elements (const void *v1, const void *v2)
      {
        char * const *p1 = v1;
-       char * const *p1 = v2;
+       char * const *p2 = v2;
 
        return strcoll (*p1, *p2);
      }
@@ -3478,6 +4706,9 @@ in this section, we will show a way to do this more efficiently using
 
  -- Function: size_t strxfrm (char *restrict TO, const char *restrict
           FROM, size_t SIZE)
+     Preliminary: | MT-Safe locale | AS-Unsafe heap | AC-Unsafe mem |
+     *Note POSIX Safety Concepts::.
+
      The function 'strxfrm' transforms the string FROM using the
      collation transformation determined by the locale currently
      selected for collation, and stores the transformed string in the
@@ -3506,6 +4737,9 @@ in this section, we will show a way to do this more efficiently using
 
  -- Function: size_t wcsxfrm (wchar_t *restrict WTO, const wchar_t
           *WFROM, size_t SIZE)
+     Preliminary: | MT-Safe locale | AS-Unsafe heap | AC-Unsafe mem |
+     *Note POSIX Safety Concepts::.
+
      The function 'wcsxfrm' transforms wide character string WFROM using
      the collation transformation determined by the locale currently
      selected for collation, and stores the transformed string in the
@@ -3656,6 +4890,9 @@ searching operations on strings and arrays.  These functions are
 declared in the header file 'string.h'.
 
  -- Function: void * memchr (const void *BLOCK, int C, size_t SIZE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This function finds the first occurrence of the byte C (converted
      to an 'unsigned char') in the initial SIZE bytes of the object
      beginning at BLOCK.  The return value is a pointer to the located
@@ -3663,12 +4900,18 @@ declared in the header file 'string.h'.
 
  -- Function: wchar_t * wmemchr (const wchar_t *BLOCK, wchar_t WC,
           size_t SIZE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This function finds the first occurrence of the wide character WC
      in the initial SIZE wide characters of the object beginning at
      BLOCK.  The return value is a pointer to the located wide
      character, or a null pointer if no match was found.
 
  -- Function: void * rawmemchr (const void *BLOCK, int C)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      Often the 'memchr' function is used with the knowledge that the
      byte C is available in the memory block specified by the
      parameters.  But this means that the SIZE parameter is not really
@@ -3694,6 +4937,9 @@ declared in the header file 'string.h'.
      This function is a GNU extension.
 
  -- Function: void * memrchr (const void *BLOCK, int C, size_t SIZE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The function 'memrchr' is like 'memchr', except that it searches
      backwards from the end of the block defined by BLOCK and SIZE
      (instead of forwards from the front).
@@ -3701,6 +4947,9 @@ declared in the header file 'string.h'.
      This function is a GNU extension.
 
  -- Function: char * strchr (const char *STRING, int C)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The 'strchr' function finds the first occurrence of the character C
      (converted to a 'char') in the null-terminated string beginning at
      STRING.  The return value is a pointer to the located character, or
@@ -3723,6 +4972,9 @@ declared in the header file 'string.h'.
      'strchrnul' than to search for it a second time.
 
  -- Function: wchar_t * wcschr (const wchar_t *WSTRING, int WC)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The 'wcschr' function finds the first occurrence of the wide
      character WC in the null-terminated wide character string beginning
      at WSTRING.  The return value is a pointer to the located wide
@@ -3735,6 +4987,9 @@ declared in the header file 'string.h'.
      portable) to use 'wcschrnul' in this case, though.
 
  -- Function: char * strchrnul (const char *STRING, int C)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      'strchrnul' is the same as 'strchr' except that if it does not find
      the character, it returns a pointer to string's terminating null
      character rather than a null pointer.
@@ -3742,6 +4997,9 @@ declared in the header file 'string.h'.
      This function is a GNU extension.
 
  -- Function: wchar_t * wcschrnul (const wchar_t *WSTRING, wchar_t WC)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      'wcschrnul' is the same as 'wcschr' except that if it does not find
      the wide character, it returns a pointer to wide character string's
      terminating null wide character rather than a null pointer.
@@ -3768,6 +5026,9 @@ This is right.  But in the GNU C Library the implementation of 'strchr'
 is optimized in a special way so that 'strchr' actually is faster.
 
  -- Function: char * strrchr (const char *STRING, int C)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The function 'strrchr' is like 'strchr', except that it searches
      backwards from the end of the string STRING (instead of forwards
      from the front).
@@ -3777,11 +5038,17 @@ is optimized in a special way so that 'strchr' actually is faster.
               => "ld"
 
  -- Function: wchar_t * wcsrchr (const wchar_t *WSTRING, wchar_t C)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The function 'wcsrchr' is like 'wcschr', except that it searches
      backwards from the end of the string WSTRING (instead of forwards
      from the front).
 
  -- Function: char * strstr (const char *HAYSTACK, const char *NEEDLE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This is like 'strchr', except that it searches HAYSTACK for a
      substring NEEDLE rather than just a single character.  It returns a
      pointer into the string HAYSTACK that is the first character of the
@@ -3796,6 +5063,9 @@ is optimized in a special way so that 'strchr' actually is faster.
 
  -- Function: wchar_t * wcsstr (const wchar_t *HAYSTACK, const wchar_t
           *NEEDLE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This is like 'wcschr', except that it searches HAYSTACK for a
      substring NEEDLE rather than just a single wide character.  It
      returns a pointer into the string HAYSTACK that is the first wide
@@ -3805,12 +5075,18 @@ is optimized in a special way so that 'strchr' actually is faster.
 
  -- Function: wchar_t * wcswcs (const wchar_t *HAYSTACK, const wchar_t
           *NEEDLE)
-     'wcswcs' is an deprecated alias for 'wcsstr'.  This is the name
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
+     'wcswcs' is a deprecated alias for 'wcsstr'.  This is the name
      originally used in the X/Open Portability Guide before the Amendment 1
      to ISO C90 was published.
 
  -- Function: char * strcasestr (const char *HAYSTACK, const char
           *NEEDLE)
+     Preliminary: | MT-Safe locale | AS-Safe | AC-Safe | *Note POSIX
+     Safety Concepts::.
+
      This is like 'strstr', except that it ignores case in searching for
      the substring.  Like 'strcasecmp', it is locale dependent how
      uppercase and lowercase characters are related.
@@ -3823,6 +5099,9 @@ is optimized in a special way so that 'strchr' actually is faster.
 
  -- Function: void * memmem (const void *HAYSTACK, size_t HAYSTACK-LEN,
           const void *NEEDLE, size_t NEEDLE-LEN)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This is like 'strstr', but NEEDLE and HAYSTACK are byte arrays
      rather than null-terminated strings.  NEEDLE-LEN is the length of
      NEEDLE and HAYSTACK-LEN is the length of HAYSTACK.
@@ -3830,6 +5109,9 @@ is optimized in a special way so that 'strchr' actually is faster.
      This function is a GNU extension.
 
  -- Function: size_t strspn (const char *STRING, const char *SKIPSET)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The 'strspn' ("string span") function returns the length of the
      initial substring of STRING that consists entirely of characters
      that are members of the set specified by the string SKIPSET.  The
@@ -3847,6 +5129,9 @@ is optimized in a special way so that 'strchr' actually is faster.
 
  -- Function: size_t wcsspn (const wchar_t *WSTRING, const wchar_t
           *SKIPSET)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The 'wcsspn' ("wide character string span") function returns the
      length of the initial substring of WSTRING that consists entirely
      of wide characters that are members of the set specified by the
@@ -3854,6 +5139,9 @@ is optimized in a special way so that 'strchr' actually is faster.
      important.
 
  -- Function: size_t strcspn (const char *STRING, const char *STOPSET)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The 'strcspn' ("string complement span") function returns the
      length of the initial substring of STRING that consists entirely of
      characters that are _not_ members of the set specified by the
@@ -3872,6 +5160,9 @@ is optimized in a special way so that 'strchr' actually is faster.
 
  -- Function: size_t wcscspn (const wchar_t *WSTRING, const wchar_t
           *STOPSET)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The 'wcscspn' ("wide character string complement span") function
      returns the length of the initial substring of WSTRING that
      consists entirely of wide characters that are _not_ members of the
@@ -3880,6 +5171,9 @@ is optimized in a special way so that 'strchr' actually is faster.
      set STOPSET.)
 
  -- Function: char * strpbrk (const char *STRING, const char *STOPSET)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The 'strpbrk' ("string pointer break") function is related to
      'strcspn', except that it returns a pointer to the first character
      in STRING that is a member of the set STOPSET instead of the length
@@ -3899,6 +5193,9 @@ is optimized in a special way so that 'strchr' actually is faster.
 
  -- Function: wchar_t * wcspbrk (const wchar_t *WSTRING, const wchar_t
           *STOPSET)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The 'wcspbrk' ("wide character string pointer break") function is
      related to 'wcscspn', except that it returns a pointer to the first
      wide character in WSTRING that is a member of the set STOPSET
@@ -3909,12 +5206,18 @@ is optimized in a special way so that 'strchr' actually is faster.
 -------------------------------------------
 
  -- Function: char * index (const char *STRING, int C)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      'index' is another name for 'strchr'; they are exactly the same.
      New code should always use 'strchr' since this name is defined in ISO C
      while 'index' is a BSD invention which never was available on System V
      derived systems.
 
  -- Function: char * rindex (const char *STRING, int C)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      'rindex' is another name for 'strrchr'; they are exactly the same.
      New code should always use 'strrchr' since this name is defined in ISO C
      while 'rindex' is a BSD invention which never was available on System V
@@ -3933,6 +5236,9 @@ the header file 'string.h'.
 
  -- Function: char * strtok (char *restrict NEWSTRING, const char
           *restrict DELIMITERS)
+     Preliminary: | MT-Unsafe race:strtok | AS-Unsafe | AC-Safe | *Note
+     POSIX Safety Concepts::.
+
      A string can be split into tokens by making a series of calls to
      the function 'strtok'.
 
@@ -3972,7 +5278,10 @@ the header file 'string.h'.
      locale-dependent.
 
  -- Function: wchar_t * wcstok (wchar_t *NEWSTRING, const wchar_t
-          *DELIMITERS)
+          *DELIMITERS, wchar_t **SAVE_PTR)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      A string can be split into tokens by making a series of calls to
      the function 'wcstok'.
 
@@ -3980,11 +5289,8 @@ the header file 'string.h'.
      the first call only.  The 'wcstok' function uses this to set up
      some internal state information.  Subsequent calls to get
      additional tokens from the same wide character string are indicated
-     by passing a null pointer as the NEWSTRING argument.  Calling
-     'wcstok' with another non-null NEWSTRING argument reinitializes the
-     state information.  It is guaranteed that no other library function
-     ever calls 'wcstok' behind your back (which would mess up this
-     internal state information).
+     by passing a null pointer as the NEWSTRING argument, which causes
+     the pointer previously stored in SAVE_PTR to be used instead.
 
      The DELIMITERS argument is a wide character string that specifies a
      set of delimiters that may surround the token being extracted.  All
@@ -3994,7 +5300,8 @@ the header file 'string.h'.
      of the token is found by looking for the next wide character that
      is a member of the delimiter set.  This wide character in the
      original wide character string NEWSTRING is overwritten by a null
-     wide character, and the pointer to the beginning of the token in
+     wide character, the pointer past the overwritten wide character is
+     saved in SAVE_PTR, and the pointer to the beginning of the token in
      NEWSTRING is returned.
 
      On the next call to 'wcstok', the searching begins at the next wide
@@ -4005,12 +5312,6 @@ the header file 'string.h'.
      If the end of the wide character string NEWSTRING is reached, or if
      the remainder of string consists only of delimiter wide characters,
      'wcstok' returns a null pointer.
-
-     Note that "character" is here used in the sense of byte.  In a
-     string using a multibyte character encoding (abstract) character
-     consisting of more than one byte are not treated as an entity.
-     Each byte is treated separately.  The function is not
-     locale-dependent.
 
    *Warning:* Since 'strtok' and 'wcstok' alter the string they is
 parsing, you should always copy the string to a temporary buffer before
@@ -4032,7 +5333,7 @@ does not have as its purpose the modification of a certain data
 structure, then it is error-prone to modify the data structure
 temporarily.
 
-   The functions 'strtok' and 'wcstok' are not reentrant.  *Note
+   The function 'strtok' is not reentrant, whereas 'wcstok' is.  *Note
 Nonreentrancy::, for a discussion of where and why reentrancy is
 important.
 
@@ -4064,18 +5365,25 @@ available for multibyte character strings.
 
  -- Function: char * strtok_r (char *NEWSTRING, const char *DELIMITERS,
           char **SAVE_PTR)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      Just like 'strtok', this function splits the string into several
      tokens which can be accessed by successive calls to 'strtok_r'.
-     The difference is that the information about the next token is
-     stored in the space pointed to by the third argument, SAVE_PTR,
-     which is a pointer to a string pointer.  Calling 'strtok_r' with a
-     null pointer for NEWSTRING and leaving SAVE_PTR between the calls
-     unchanged does the job without hindering reentrancy.
+     The difference is that, as in 'wcstok', the information about the
+     next token is stored in the space pointed to by the third argument,
+     SAVE_PTR, which is a pointer to a string pointer.  Calling
+     'strtok_r' with a null pointer for NEWSTRING and leaving SAVE_PTR
+     between the calls unchanged does the job without hindering
+     reentrancy.
 
      This function is defined in POSIX.1 and can be found on many
      systems which support multi-threading.
 
  -- Function: char * strsep (char **STRING_PTR, const char *DELIMITER)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This function has a similar functionality as 'strtok_r' with the
      NEWSTRING argument replaced by the SAVE_PTR argument.  The
      initialization of the moving pointer has to be done by the user.
@@ -4121,6 +5429,9 @@ available for multibyte character strings.
      token = strsep (&running, delimiters);    /* token => NULL */
 
  -- Function: char * basename (const char *FILENAME)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The GNU version of the 'basename' function returns the last
      component of the path in FILENAME.  This function is the preferred
      usage, since it does not modify the argument, FILENAME, and
@@ -4150,6 +5461,9 @@ available for multibyte character strings.
      different systems.
 
  -- Function: char * basename (const char *PATH)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      This is the standard XPG defined 'basename'.  It is similar in
      spirit to the GNU version, but may modify the PATH by removing
      trailing '/' characters.  If the PATH is made up entirely of '/'
@@ -4180,6 +5494,9 @@ available for multibyte character strings.
           }
 
  -- Function: char * dirname (char *PATH)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The 'dirname' function is the compliment to the XPG version of
      'basename'.  It returns the parent directory of the file specified
      by PATH.  If PATH is 'NULL', an empty string, or contains no '/'
@@ -4202,6 +5519,8 @@ string data.
    The prototype for this function is in 'string.h'.
 
  -- Function: char * strfry (char *STRING)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
 
      'strfry' creates a pseudorandom anagram of a string, replacing the
      input with the anagram in place.  For each position in the string,
@@ -4230,6 +5549,8 @@ Unlike Rot13, 'memfrob' works on arbitrary binary data, not just text.
    This function is declared in 'string.h'.
 
  -- Function: void * memfrob (void *MEM, size_t LENGTH)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
 
      'memfrob' transforms (frobnicates) each byte of the data structure
      at MEM, which is LENGTH bytes long, by bitwise exclusive oring it
@@ -4255,11 +5576,14 @@ File: libc.info,  Node: Encode Binary Data,  Next: Argz and Envz Vectors,  Prev:
 
 To store or transfer binary data in environments which only support text
 one has to encode the binary data by mapping the input bytes to
-characters in the range allowed for storing or transfering.  SVID
+characters in the range allowed for storing or transferring.  SVID
 systems (and nowadays XPG compliant systems) provide minimal support for
 this task.
 
  -- Function: char * l64a (long int N)
+     Preliminary: | MT-Unsafe race:l64a | AS-Unsafe | AC-Safe | *Note
+     POSIX Safety Concepts::.
+
      This function encodes a 32-bit input value using characters from
      the basic character set.  It returns a pointer to a 7 character
      buffer which contains an encoded version of N.  To encode a series
@@ -4329,6 +5653,9 @@ this task.
 used.
 
  -- Function: long int a64l (const char *STRING)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The parameter STRING should contain a string which was produced by
      a call to 'l64a'.  The function processes at least 6 characters of
      this string, and decodes the characters it finds according to the
@@ -4402,6 +5729,9 @@ error occurs.
 
  -- Function: error_t argz_create (char *const ARGV[], char **ARGZ,
           size_t *ARGZ_LEN)
+     Preliminary: | MT-Safe | AS-Unsafe heap | AC-Unsafe mem | *Note
+     POSIX Safety Concepts::.
+
      The 'argz_create' function converts the Unix-style argument vector
      ARGV (a vector of pointers to normal C strings, terminated by
      '(char *)0'; *note Program Arguments::) into an argz vector with
@@ -4409,17 +5739,26 @@ error occurs.
 
  -- Function: error_t argz_create_sep (const char *STRING, int SEP, char
           **ARGZ, size_t *ARGZ_LEN)
+     Preliminary: | MT-Safe | AS-Unsafe heap | AC-Unsafe mem | *Note
+     POSIX Safety Concepts::.
+
      The 'argz_create_sep' function converts the null-terminated string
      STRING into an argz vector (returned in ARGZ and ARGZ_LEN) by
      splitting it into elements at every occurrence of the character
      SEP.
 
  -- Function: size_t argz_count (const char *ARGZ, size_t ARG_LEN)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      Returns the number of elements in the argz vector ARGZ and
      ARGZ_LEN.
 
  -- Function: void argz_extract (const char *ARGZ, size_t ARGZ_LEN, char
           **ARGV)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The 'argz_extract' function converts the argz vector ARGZ and
      ARGZ_LEN into a Unix-style argument vector stored in ARGV, by
      putting pointers to every element in ARGZ into successive positions
@@ -4433,6 +5772,9 @@ error occurs.
      in ARGZ to an exec function (*note Executing a File::).
 
  -- Function: void argz_stringify (char *ARGZ, size_t LEN, int SEP)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The 'argz_stringify' converts ARGZ into a normal string with the
      elements separated by the character SEP, by replacing each ''\0''
      inside ARGZ (except the last one, which terminates the string) with
@@ -4440,11 +5782,17 @@ error occurs.
 
  -- Function: error_t argz_add (char **ARGZ, size_t *ARGZ_LEN, const
           char *STR)
+     Preliminary: | MT-Safe | AS-Unsafe heap | AC-Unsafe mem | *Note
+     POSIX Safety Concepts::.
+
      The 'argz_add' function adds the string STR to the end of the argz
      vector '*ARGZ', and updates '*ARGZ' and '*ARGZ_LEN' accordingly.
 
  -- Function: error_t argz_add_sep (char **ARGZ, size_t *ARGZ_LEN, const
           char *STR, int DELIM)
+     Preliminary: | MT-Safe | AS-Unsafe heap | AC-Unsafe mem | *Note
+     POSIX Safety Concepts::.
+
      The 'argz_add_sep' function is similar to 'argz_add', but STR is
      split into separate elements in the result at occurrences of the
      character DELIM.  This is useful, for instance, for adding the
@@ -4453,12 +5801,18 @@ error occurs.
 
  -- Function: error_t argz_append (char **ARGZ, size_t *ARGZ_LEN, const
           char *BUF, size_t BUF_LEN)
+     Preliminary: | MT-Safe | AS-Unsafe heap | AC-Unsafe mem | *Note
+     POSIX Safety Concepts::.
+
      The 'argz_append' function appends BUF_LEN bytes starting at BUF to
      the argz vector '*ARGZ', reallocating '*ARGZ' to accommodate it,
      and adding BUF_LEN to '*ARGZ_LEN'.
 
  -- Function: void argz_delete (char **ARGZ, size_t *ARGZ_LEN, char
           *ENTRY)
+     Preliminary: | MT-Safe | AS-Unsafe heap | AC-Unsafe mem | *Note
+     POSIX Safety Concepts::.
+
      If ENTRY points to the beginning of one of the elements in the argz
      vector '*ARGZ', the 'argz_delete' function will remove this entry
      and reallocate '*ARGZ', modifying '*ARGZ' and '*ARGZ_LEN'
@@ -4468,6 +5822,9 @@ error occurs.
 
  -- Function: error_t argz_insert (char **ARGZ, size_t *ARGZ_LEN, char
           *BEFORE, const char *ENTRY)
+     Preliminary: | MT-Safe | AS-Unsafe heap | AC-Unsafe mem | *Note
+     POSIX Safety Concepts::.
+
      The 'argz_insert' function inserts the string ENTRY into the argz
      vector '*ARGZ' at a point just before the existing element pointed
      to by BEFORE, reallocating '*ARGZ' and updating '*ARGZ' and
@@ -4478,6 +5835,9 @@ error occurs.
 
  -- Function: char * argz_next (const char *ARGZ, size_t ARGZ_LEN, const
           char *ENTRY)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The 'argz_next' function provides a convenient way of iterating
      over the elements in the argz vector ARGZ.  It returns a pointer to
      the next element in ARGZ after the element ENTRY, or '0' if there
@@ -4506,6 +5866,9 @@ error occurs.
 
  -- Function: error_t argz_replace (char **ARGZ, size_t *ARGZ_LEN,
           const char *STR, const char *WITH, unsigned *REPLACE_COUNT)
+     Preliminary: | MT-Safe | AS-Unsafe heap | AC-Unsafe mem | *Note
+     POSIX Safety Concepts::.
+
      Replace any occurrences of the string STR in ARGZ with WITH,
      reallocating ARGZ as necessary.  If REPLACE_COUNT is non-zero,
      '*REPLACE_COUNT' will be incremented by number of replacements
@@ -4541,6 +5904,9 @@ thus fail) have a return type of 'error_t', and return either '0' or
 
  -- Function: char * envz_entry (const char *ENVZ, size_t ENVZ_LEN,
           const char *NAME)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The 'envz_entry' function finds the entry in ENVZ with the name
      NAME, and returns a pointer to the whole entry--that is, the argz
      element which begins with NAME followed by a ''='' character.  If
@@ -4548,6 +5914,9 @@ thus fail) have a return type of 'error_t', and return either '0' or
 
  -- Function: char * envz_get (const char *ENVZ, size_t ENVZ_LEN, const
           char *NAME)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The 'envz_get' function finds the entry in ENVZ with the name NAME
      (like 'envz_entry'), and returns a pointer to the value portion of
      that entry (following the ''='').  If there is no entry with that
@@ -4555,6 +5924,9 @@ thus fail) have a return type of 'error_t', and return either '0' or
 
  -- Function: error_t envz_add (char **ENVZ, size_t *ENVZ_LEN, const
           char *NAME, const char *VALUE)
+     Preliminary: | MT-Safe | AS-Unsafe heap | AC-Unsafe mem | *Note
+     POSIX Safety Concepts::.
+
      The 'envz_add' function adds an entry to '*ENVZ' (updating '*ENVZ'
      and '*ENVZ_LEN') with the name NAME, and value VALUE.  If an entry
      with the same name already exists in ENVZ, it is removed first.  If
@@ -4563,6 +5935,9 @@ thus fail) have a return type of 'error_t', and return either '0' or
 
  -- Function: error_t envz_merge (char **ENVZ, size_t *ENVZ_LEN, const
           char *ENVZ2, size_t ENVZ2_LEN, int OVERRIDE)
+     Preliminary: | MT-Safe | AS-Unsafe heap | AC-Unsafe mem | *Note
+     POSIX Safety Concepts::.
+
      The 'envz_merge' function adds each entry in ENVZ2 to ENVZ, as if
      with 'envz_add', updating '*ENVZ' and '*ENVZ_LEN'.  If OVERRIDE is
      true, then values in ENVZ2 will supersede those with the same name
@@ -4573,6 +5948,9 @@ thus fail) have a return type of 'error_t', and return either '0' or
      ENVZ2 from being added to ENVZ, if OVERRIDE is false.
 
  -- Function: void envz_strip (char **ENVZ, size_t *ENVZ_LEN)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The 'envz_strip' function removes any null entries from ENVZ,
      updating '*ENVZ' and '*ENVZ_LEN'.
 
@@ -5025,6 +6403,9 @@ sequences to set the state to the initial state at certain sequence
 points.  Communication protocols often require this.
 
  -- Function: int mbsinit (const mbstate_t *PS)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The 'mbsinit' function determines whether the state object pointed
      to by PS is in the initial state.  If PS is a null pointer or the
      object is in the initial state the return value is nonzero.
@@ -5075,6 +6456,9 @@ character stands for itself, and all other characters have at least a
 first byte that is beyond the range 0 to 127.
 
  -- Function: wint_t btowc (int C)
+     Preliminary: | MT-Safe | AS-Unsafe corrupt heap lock dlopen |
+     AC-Unsafe corrupt lock mem fd | *Note POSIX Safety Concepts::.
+
      The 'btowc' function ("byte to wide character") converts a valid
      single byte character C in the initial shift state into the wide
      character equivalent using the conversion rules from the currently
@@ -5124,6 +6508,9 @@ is required.
 There is also a function for the conversion in the other direction.
 
  -- Function: int wctob (wint_t C)
+     Preliminary: | MT-Safe | AS-Unsafe corrupt heap lock dlopen |
+     AC-Unsafe corrupt lock mem fd | *Note POSIX Safety Concepts::.
+
      The 'wctob' function ("wide character to byte") takes as the
      parameter a valid wide character.  If the multibyte representation
      for this character in the initial state is exactly one byte long,
@@ -5140,6 +6527,10 @@ and they also do not require it to be in the initial state.
 
  -- Function: size_t mbrtowc (wchar_t *restrict PWC, const char
           *restrict S, size_t N, mbstate_t *restrict PS)
+     Preliminary: | MT-Unsafe race:mbrtowc/!ps | AS-Unsafe corrupt heap
+     lock dlopen | AC-Unsafe corrupt lock mem fd | *Note POSIX Safety
+     Concepts::.
+
      The 'mbrtowc' function ("multibyte restartable to wide character")
      converts the next multibyte character in the string pointed to by S
      into a wide character and stores it in the wide character string
@@ -5228,6 +6619,10 @@ There is, however, a function that does part of the work.
 
  -- Function: size_t mbrlen (const char *restrict S, size_t N, mbstate_t
           *PS)
+     Preliminary: | MT-Unsafe race:mbrlen/!ps | AS-Unsafe corrupt heap
+     lock dlopen | AC-Unsafe corrupt lock mem fd | *Note POSIX Safety
+     Concepts::.
+
      The 'mbrlen' function ("multibyte restartable length") computes the
      number of at most N bytes starting at S, which form the next valid
      and complete multibyte character.
@@ -5280,7 +6675,7 @@ directly usable, but we can define a function 'mbslen' using it:
    This function simply calls 'mbrlen' for each multibyte character in
 the string and counts the number of function calls.  Please note that we
 here use 'MB_LEN_MAX' as the size argument in the 'mbrlen' call.  This
-is acceptable since a) this value is larger then the length of the
+is acceptable since a) this value is larger than the length of the
 longest multibyte character sequence and b) we know that the string S
 ends with a NUL byte, which cannot be part of any other multibyte
 character sequence but the one representing the NUL wide character.
@@ -5302,6 +6697,10 @@ the work twice.
 
  -- Function: size_t wcrtomb (char *restrict S, wchar_t WC, mbstate_t
           *restrict PS)
+     Preliminary: | MT-Unsafe race:wcrtomb/!ps | AS-Unsafe corrupt heap
+     lock dlopen | AC-Unsafe corrupt lock mem fd | *Note POSIX Safety
+     Concepts::.
+
      The 'wcrtomb' function ("wide character restartable to multibyte")
      converts a single wide character into a multibyte string
      corresponding to that wide character.
@@ -5436,8 +6835,12 @@ that can help in some important situations.
 
  -- Function: size_t mbsrtowcs (wchar_t *restrict DST, const char
           **restrict SRC, size_t LEN, mbstate_t *restrict PS)
+     Preliminary: | MT-Unsafe race:mbsrtowcs/!ps | AS-Unsafe corrupt
+     heap lock dlopen | AC-Unsafe corrupt lock mem fd | *Note POSIX
+     Safety Concepts::.
+
      The 'mbsrtowcs' function ("multibyte string restartable to wide
-     character string") converts an NUL-terminated multibyte character
+     character string") converts a NUL-terminated multibyte character
      string at '*SRC' into an equivalent wide character string,
      including the NUL wide character at the end.  The conversion is
      started using the state information from the object pointed to by
@@ -5512,6 +6915,10 @@ to the function.
 
  -- Function: size_t wcsrtombs (char *restrict DST, const wchar_t
           **restrict SRC, size_t LEN, mbstate_t *restrict PS)
+     Preliminary: | MT-Unsafe race:wcsrtombs/!ps | AS-Unsafe corrupt
+     heap lock dlopen | AC-Unsafe corrupt lock mem fd | *Note POSIX
+     Safety Concepts::.
+
      The 'wcsrtombs' function ("wide character string restartable to
      multibyte string") converts the NUL-terminated wide character
      string at '*SRC' into an equivalent multibyte character string and
@@ -5555,6 +6962,10 @@ output array size (the LEN parameter).
  -- Function: size_t mbsnrtowcs (wchar_t *restrict DST, const char
           **restrict SRC, size_t NMC, size_t LEN, mbstate_t *restrict
           PS)
+     Preliminary: | MT-Unsafe race:mbsnrtowcs/!ps | AS-Unsafe corrupt
+     heap lock dlopen | AC-Unsafe corrupt lock mem fd | *Note POSIX
+     Safety Concepts::.
+
      The 'mbsnrtowcs' function is very similar to the 'mbsrtowcs'
      function.  All the parameters are the same except for NMC, which is
      new.  The return value is the same as for 'mbsrtowcs'.
@@ -5605,6 +7016,10 @@ given buffer, there is no problem with altering the state.
  -- Function: size_t wcsnrtombs (char *restrict DST, const wchar_t
           **restrict SRC, size_t NWC, size_t LEN, mbstate_t *restrict
           PS)
+     Preliminary: | MT-Unsafe race:wcsnrtombs/!ps | AS-Unsafe corrupt
+     heap lock dlopen | AC-Unsafe corrupt lock mem fd | *Note POSIX
+     Safety Concepts::.
+
      The 'wcsnrtombs' function implements the conversion from wide
      character strings to multibyte character strings.  It is similar to
      'wcsrtombs' but, just like 'mbsnrtowcs', it takes an extra
@@ -5750,6 +7165,9 @@ File: libc.info,  Node: Non-reentrant Character Conversion,  Next: Non-reentrant
 
  -- Function: int mbtowc (wchar_t *restrict RESULT, const char *restrict
           STRING, size_t SIZE)
+     Preliminary: | MT-Unsafe race | AS-Unsafe corrupt heap lock dlopen
+     | AC-Unsafe corrupt lock mem fd | *Note POSIX Safety Concepts::.
+
      The 'mbtowc' ("multibyte to wide character") function when called
      with non-null STRING converts the first multibyte character
      beginning at STRING to its corresponding wide character code.  It
@@ -5780,6 +7198,9 @@ File: libc.info,  Node: Non-reentrant Character Conversion,  Next: Non-reentrant
      *Note Shift State::.
 
  -- Function: int wctomb (char *STRING, wchar_t WCHAR)
+     Preliminary: | MT-Unsafe race | AS-Unsafe corrupt heap lock dlopen
+     | AC-Unsafe corrupt lock mem fd | *Note POSIX Safety Concepts::.
+
      The 'wctomb' ("wide character to multibyte") function converts the
      wide character code WCHAR to its corresponding multibyte character
      sequence, and stores the result in bytes starting at STRING.  At
@@ -5815,6 +7236,9 @@ computes the length of a multibyte character.  It can be defined in
 terms of 'mbtowc'.
 
  -- Function: int mblen (const char *STRING, size_t SIZE)
+     Preliminary: | MT-Unsafe race | AS-Unsafe corrupt heap lock dlopen
+     | AC-Unsafe corrupt lock mem fd | *Note POSIX Safety Concepts::.
+
      The 'mblen' function with a non-null STRING argument returns the
      number of bytes that make up the multibyte character beginning at
      STRING, never examining more than SIZE bytes.  (The idea is to
@@ -5838,1462 +7262,4 @@ terms of 'mbtowc'.
      state.  *Note Shift State::.
 
      The function 'mblen' is declared in 'stdlib.h'.
-
-
-File: libc.info,  Node: Non-reentrant String Conversion,  Next: Shift State,  Prev: Non-reentrant Character Conversion,  Up: Non-reentrant Conversion
-
-6.4.2 Non-reentrant Conversion of Strings
------------------------------------------
-
-For convenience the ISO C90 standard also defines functions to convert
-entire strings instead of single characters.  These functions suffer
-from the same problems as their reentrant counterparts from Amendment 1
-to ISO C90; see *note Converting Strings::.
-
- -- Function: size_t mbstowcs (wchar_t *WSTRING, const char *STRING,
-          size_t SIZE)
-     The 'mbstowcs' ("multibyte string to wide character string")
-     function converts the null-terminated string of multibyte
-     characters STRING to an array of wide character codes, storing not
-     more than SIZE wide characters into the array beginning at WSTRING.
-     The terminating null character counts towards the size, so if SIZE
-     is less than the actual number of wide characters resulting from
-     STRING, no terminating null character is stored.
-
-     The conversion of characters from STRING begins in the initial
-     shift state.
-
-     If an invalid multibyte character sequence is found, the 'mbstowcs'
-     function returns a value of -1.  Otherwise, it returns the number
-     of wide characters stored in the array WSTRING.  This number does
-     not include the terminating null character, which is present if the
-     number is less than SIZE.
-
-     Here is an example showing how to convert a string of multibyte
-     characters, allocating enough space for the result.
-
-          wchar_t *
-          mbstowcs_alloc (const char *string)
-          {
-            size_t size = strlen (string) + 1;
-            wchar_t *buf = xmalloc (size * sizeof (wchar_t));
-
-            size = mbstowcs (buf, string, size);
-            if (size == (size_t) -1)
-              return NULL;
-            buf = xrealloc (buf, (size + 1) * sizeof (wchar_t));
-            return buf;
-          }
-
- -- Function: size_t wcstombs (char *STRING, const wchar_t *WSTRING,
-          size_t SIZE)
-     The 'wcstombs' ("wide character string to multibyte string")
-     function converts the null-terminated wide character array WSTRING
-     into a string containing multibyte characters, storing not more
-     than SIZE bytes starting at STRING, followed by a terminating null
-     character if there is room.  The conversion of characters begins in
-     the initial shift state.
-
-     The terminating null character counts towards the size, so if SIZE
-     is less than or equal to the number of bytes needed in WSTRING, no
-     terminating null character is stored.
-
-     If a code that does not correspond to a valid multibyte character
-     is found, the 'wcstombs' function returns a value of -1.
-     Otherwise, the return value is the number of bytes stored in the
-     array STRING.  This number does not include the terminating null
-     character, which is present if the number is less than SIZE.
-
-
-File: libc.info,  Node: Shift State,  Prev: Non-reentrant String Conversion,  Up: Non-reentrant Conversion
-
-6.4.3 States in Non-reentrant Functions
----------------------------------------
-
-In some multibyte character codes, the _meaning_ of any particular byte
-sequence is not fixed; it depends on what other sequences have come
-earlier in the same string.  Typically there are just a few sequences
-that can change the meaning of other sequences; these few are called
-"shift sequences" and we say that they set the "shift state" for other
-sequences that follow.
-
-   To illustrate shift state and shift sequences, suppose we decide that
-the sequence '0200' (just one byte) enters Japanese mode, in which pairs
-of bytes in the range from '0240' to '0377' are single characters, while
-'0201' enters Latin-1 mode, in which single bytes in the range from
-'0240' to '0377' are characters, and interpreted according to the ISO
-Latin-1 character set.  This is a multibyte code that has two
-alternative shift states ("Japanese mode" and "Latin-1 mode"), and two
-shift sequences that specify particular shift states.
-
-   When the multibyte character code in use has shift states, then
-'mblen', 'mbtowc', and 'wctomb' must maintain and update the current
-shift state as they scan the string.  To make this work properly, you
-must follow these rules:
-
-   * Before starting to scan a string, call the function with a null
-     pointer for the multibyte character address--for example, 'mblen
-     (NULL, 0)'.  This initializes the shift state to its standard
-     initial value.
-
-   * Scan the string one character at a time, in order.  Do not "back
-     up" and rescan characters already scanned, and do not intersperse
-     the processing of different strings.
-
-   Here is an example of using 'mblen' following these rules:
-
-     void
-     scan_string (char *s)
-     {
-       int length = strlen (s);
-
-       /* Initialize shift state.  */
-       mblen (NULL, 0);
-
-       while (1)
-         {
-           int thischar = mblen (s, length);
-           /* Deal with end of string and invalid characters.  */
-           if (thischar == 0)
-             break;
-           if (thischar == -1)
-             {
-               error ("invalid multibyte character");
-               break;
-             }
-           /* Advance past this character.  */
-           s += thischar;
-           length -= thischar;
-         }
-     }
-
-   The functions 'mblen', 'mbtowc' and 'wctomb' are not reentrant when
-using a multibyte code that uses a shift state.  However, no other
-library functions call these functions, so you don't have to worry that
-the shift state will be changed mysteriously.
-
-
-File: libc.info,  Node: Generic Charset Conversion,  Prev: Non-reentrant Conversion,  Up: Character Set Handling
-
-6.5 Generic Charset Conversion
-==============================
-
-The conversion functions mentioned so far in this chapter all had in
-common that they operate on character sets that are not directly
-specified by the functions.  The multibyte encoding used is specified by
-the currently selected locale for the 'LC_CTYPE' category.  The wide
-character set is fixed by the implementation (in the case of the GNU C
-Library it is always UCS-4 encoded ISO 10646.
-
-   This has of course several problems when it comes to general
-character conversion:
-
-   * For every conversion where neither the source nor the destination
-     character set is the character set of the locale for the 'LC_CTYPE'
-     category, one has to change the 'LC_CTYPE' locale using
-     'setlocale'.
-
-     Changing the 'LC_CTYPE' locale introduces major problems for the
-     rest of the programs since several more functions (e.g., the
-     character classification functions, *note Classification of
-     Characters::) use the 'LC_CTYPE' category.
-
-   * Parallel conversions to and from different character sets are not
-     possible since the 'LC_CTYPE' selection is global and shared by all
-     threads.
-
-   * If neither the source nor the destination character set is the
-     character set used for 'wchar_t' representation, there is at least
-     a two-step process necessary to convert a text using the functions
-     above.  One would have to select the source character set as the
-     multibyte encoding, convert the text into a 'wchar_t' text, select
-     the destination character set as the multibyte encoding, and
-     convert the wide character text to the multibyte (= destination)
-     character set.
-
-     Even if this is possible (which is not guaranteed) it is a very
-     tiring work.  Plus it suffers from the other two raised points even
-     more due to the steady changing of the locale.
-
-   The XPG2 standard defines a completely new set of functions, which
-has none of these limitations.  They are not at all coupled to the
-selected locales, and they have no constraints on the character sets
-selected for source and destination.  Only the set of available
-conversions limits them.  The standard does not specify that any
-conversion at all must be available.  Such availability is a measure of
-the quality of the implementation.
-
-   In the following text first the interface to 'iconv' and then the
-conversion function, will be described.  Comparisons with other
-implementations will show what obstacles stand in the way of portable
-applications.  Finally, the implementation is described in so far as
-might interest the advanced user who wants to extend conversion
-capabilities.
-
-* Menu:
-
-* Generic Conversion Interface::    Generic Character Set Conversion Interface.
-* iconv Examples::                  A complete 'iconv' example.
-* Other iconv Implementations::     Some Details about other 'iconv'
-                                     Implementations.
-* glibc iconv Implementation::      The 'iconv' Implementation in the GNU C
-                                     library.
-
-
-File: libc.info,  Node: Generic Conversion Interface,  Next: iconv Examples,  Up: Generic Charset Conversion
-
-6.5.1 Generic Character Set Conversion Interface
-------------------------------------------------
-
-This set of functions follows the traditional cycle of using a resource:
-open-use-close.  The interface consists of three functions, each of
-which implements one step.
-
-   Before the interfaces are described it is necessary to introduce a
-data type.  Just like other open-use-close interfaces the functions
-introduced here work using handles and the 'iconv.h' header defines a
-special type for the handles used.
-
- -- Data Type: iconv_t
-     This data type is an abstract type defined in 'iconv.h'.  The user
-     must not assume anything about the definition of this type; it must
-     be completely opaque.
-
-     Objects of this type can get assigned handles for the conversions
-     using the 'iconv' functions.  The objects themselves need not be
-     freed, but the conversions for which the handles stand for have to.
-
-The first step is the function to create a handle.
-
- -- Function: iconv_t iconv_open (const char *TOCODE, const char
-          *FROMCODE)
-     The 'iconv_open' function has to be used before starting a
-     conversion.  The two parameters this function takes determine the
-     source and destination character set for the conversion, and if the
-     implementation has the possibility to perform such a conversion,
-     the function returns a handle.
-
-     If the wanted conversion is not available, the 'iconv_open'
-     function returns '(iconv_t) -1'.  In this case the global variable
-     'errno' can have the following values:
-
-     'EMFILE'
-          The process already has 'OPEN_MAX' file descriptors open.
-     'ENFILE'
-          The system limit of open file is reached.
-     'ENOMEM'
-          Not enough memory to carry out the operation.
-     'EINVAL'
-          The conversion from FROMCODE to TOCODE is not supported.
-
-     It is not possible to use the same descriptor in different threads
-     to perform independent conversions.  The data structures associated
-     with the descriptor include information about the conversion state.
-     This must not be messed up by using it in different conversions.
-
-     An 'iconv' descriptor is like a file descriptor as for every use a
-     new descriptor must be created.  The descriptor does not stand for
-     all of the conversions from FROMSET to TOSET.
-
-     The GNU C Library implementation of 'iconv_open' has one
-     significant extension to other implementations.  To ease the
-     extension of the set of available conversions, the implementation
-     allows storing the necessary files with data and code in an
-     arbitrary number of directories.  How this extension must be
-     written will be explained below (*note glibc iconv
-     Implementation::).  Here it is only important to say that all
-     directories mentioned in the 'GCONV_PATH' environment variable are
-     considered only if they contain a file 'gconv-modules'.  These
-     directories need not necessarily be created by the system
-     administrator.  In fact, this extension is introduced to help users
-     writing and using their own, new conversions.  Of course, this does
-     not work for security reasons in SUID binaries; in this case only
-     the system directory is considered and this normally is
-     'PREFIX/lib/gconv'.  The 'GCONV_PATH' environment variable is
-     examined exactly once at the first call of the 'iconv_open'
-     function.  Later modifications of the variable have no effect.
-
-     The 'iconv_open' function was introduced early in the X/Open
-     Portability Guide, version 2.  It is supported by all commercial
-     Unices as it is required for the Unix branding.  However, the
-     quality and completeness of the implementation varies widely.  The
-     'iconv_open' function is declared in 'iconv.h'.
-
-   The 'iconv' implementation can associate large data structure with
-the handle returned by 'iconv_open'.  Therefore, it is crucial to free
-all the resources once all conversions are carried out and the
-conversion is not needed anymore.
-
- -- Function: int iconv_close (iconv_t CD)
-     The 'iconv_close' function frees all resources associated with the
-     handle CD, which must have been returned by a successful call to
-     the 'iconv_open' function.
-
-     If the function call was successful the return value is 0.
-     Otherwise it is -1 and 'errno' is set appropriately.  Defined error
-     are:
-
-     'EBADF'
-          The conversion descriptor is invalid.
-
-     The 'iconv_close' function was introduced together with the rest of
-     the 'iconv' functions in XPG2 and is declared in 'iconv.h'.
-
-   The standard defines only one actual conversion function.  This has,
-therefore, the most general interface: it allows conversion from one
-buffer to another.  Conversion from a file to a buffer, vice versa, or
-even file to file can be implemented on top of it.
-
- -- Function: size_t iconv (iconv_t CD, char **INBUF, size_t
-          *INBYTESLEFT, char **OUTBUF, size_t *OUTBYTESLEFT)
-     The 'iconv' function converts the text in the input buffer
-     according to the rules associated with the descriptor CD and stores
-     the result in the output buffer.  It is possible to call the
-     function for the same text several times in a row since for
-     stateful character sets the necessary state information is kept in
-     the data structures associated with the descriptor.
-
-     The input buffer is specified by '*INBUF' and it contains
-     '*INBYTESLEFT' bytes.  The extra indirection is necessary for
-     communicating the used input back to the caller (see below).  It is
-     important to note that the buffer pointer is of type 'char' and the
-     length is measured in bytes even if the input text is encoded in
-     wide characters.
-
-     The output buffer is specified in a similar way.  '*OUTBUF' points
-     to the beginning of the buffer with at least '*OUTBYTESLEFT' bytes
-     room for the result.  The buffer pointer again is of type 'char'
-     and the length is measured in bytes.  If OUTBUF or '*OUTBUF' is a
-     null pointer, the conversion is performed but no output is
-     available.
-
-     If INBUF is a null pointer, the 'iconv' function performs the
-     necessary action to put the state of the conversion into the
-     initial state.  This is obviously a no-op for non-stateful
-     encodings, but if the encoding has a state, such a function call
-     might put some byte sequences in the output buffer, which perform
-     the necessary state changes.  The next call with INBUF not being a
-     null pointer then simply goes on from the initial state.  It is
-     important that the programmer never makes any assumption as to
-     whether the conversion has to deal with states.  Even if the input
-     and output character sets are not stateful, the implementation
-     might still have to keep states.  This is due to the implementation
-     chosen for the GNU C Library as it is described below.  Therefore
-     an 'iconv' call to reset the state should always be performed if
-     some protocol requires this for the output text.
-
-     The conversion stops for one of three reasons.  The first is that
-     all characters from the input buffer are converted.  This actually
-     can mean two things: either all bytes from the input buffer are
-     consumed or there are some bytes at the end of the buffer that
-     possibly can form a complete character but the input is incomplete.
-     The second reason for a stop is that the output buffer is full.
-     And the third reason is that the input contains invalid characters.
-
-     In all of these cases the buffer pointers after the last successful
-     conversion, for input and output buffer, are stored in INBUF and
-     OUTBUF, and the available room in each buffer is stored in
-     INBYTESLEFT and OUTBYTESLEFT.
-
-     Since the character sets selected in the 'iconv_open' call can be
-     almost arbitrary, there can be situations where the input buffer
-     contains valid characters, which have no identical representation
-     in the output character set.  The behavior in this situation is
-     undefined.  The _current_ behavior of the GNU C Library in this
-     situation is to return with an error immediately.  This certainly
-     is not the most desirable solution; therefore, future versions will
-     provide better ones, but they are not yet finished.
-
-     If all input from the input buffer is successfully converted and
-     stored in the output buffer, the function returns the number of
-     non-reversible conversions performed.  In all other cases the
-     return value is '(size_t) -1' and 'errno' is set appropriately.  In
-     such cases the value pointed to by INBYTESLEFT is nonzero.
-
-     'EILSEQ'
-          The conversion stopped because of an invalid byte sequence in
-          the input.  After the call, '*INBUF' points at the first byte
-          of the invalid byte sequence.
-
-     'E2BIG'
-          The conversion stopped because it ran out of space in the
-          output buffer.
-
-     'EINVAL'
-          The conversion stopped because of an incomplete byte sequence
-          at the end of the input buffer.
-
-     'EBADF'
-          The CD argument is invalid.
-
-     The 'iconv' function was introduced in the XPG2 standard and is
-     declared in the 'iconv.h' header.
-
-   The definition of the 'iconv' function is quite good overall.  It
-provides quite flexible functionality.  The only problems lie in the
-boundary cases, which are incomplete byte sequences at the end of the
-input buffer and invalid input.  A third problem, which is not really a
-design problem, is the way conversions are selected.  The standard does
-not say anything about the legitimate names, a minimal set of available
-conversions.  We will see how this negatively impacts other
-implementations, as demonstrated below.
-
-
-File: libc.info,  Node: iconv Examples,  Next: Other iconv Implementations,  Prev: Generic Conversion Interface,  Up: Generic Charset Conversion
-
-6.5.2 A complete 'iconv' example
---------------------------------
-
-The example below features a solution for a common problem.  Given that
-one knows the internal encoding used by the system for 'wchar_t'
-strings, one often is in the position to read text from a file and store
-it in wide character buffers.  One can do this using 'mbsrtowcs', but
-then we run into the problems discussed above.
-
-     int
-     file2wcs (int fd, const char *charset, wchar_t *outbuf, size_t avail)
-     {
-       char inbuf[BUFSIZ];
-       size_t insize = 0;
-       char *wrptr = (char *) outbuf;
-       int result = 0;
-       iconv_t cd;
-
-       cd = iconv_open ("WCHAR_T", charset);
-       if (cd == (iconv_t) -1)
-         {
-           /* Something went wrong.  */
-           if (errno == EINVAL)
-             error (0, 0, "conversion from '%s' to wchar_t not available",
-                    charset);
-           else
-             perror ("iconv_open");
-
-           /* Terminate the output string.  */
-           *outbuf = L'\0';
-
-           return -1;
-         }
-
-       while (avail > 0)
-         {
-           size_t nread;
-           size_t nconv;
-           char *inptr = inbuf;
-
-           /* Read more input.  */
-           nread = read (fd, inbuf + insize, sizeof (inbuf) - insize);
-           if (nread == 0)
-             {
-               /* When we come here the file is completely read.
-                  This still could mean there are some unused
-                  characters in the 'inbuf'.  Put them back.  */
-               if (lseek (fd, -insize, SEEK_CUR) == -1)
-                 result = -1;
-
-               /* Now write out the byte sequence to get into the
-                  initial state if this is necessary.  */
-               iconv (cd, NULL, NULL, &wrptr, &avail);
-
-               break;
-             }
-           insize += nread;
-
-           /* Do the conversion.  */
-           nconv = iconv (cd, &inptr, &insize, &wrptr, &avail);
-           if (nconv == (size_t) -1)
-             {
-               /* Not everything went right.  It might only be
-                  an unfinished byte sequence at the end of the
-                  buffer.  Or it is a real problem.  */
-               if (errno == EINVAL)
-                 /* This is harmless.  Simply move the unused
-                    bytes to the beginning of the buffer so that
-                    they can be used in the next round.  */
-                 memmove (inbuf, inptr, insize);
-               else
-                 {
-                   /* It is a real problem.  Maybe we ran out of
-                      space in the output buffer or we have invalid
-                      input.  In any case back the file pointer to
-                      the position of the last processed byte.  */
-                   lseek (fd, -insize, SEEK_CUR);
-                   result = -1;
-                   break;
-                 }
-             }
-         }
-
-       /* Terminate the output string.  */
-       if (avail >= sizeof (wchar_t))
-         *((wchar_t *) wrptr) = L'\0';
-
-       if (iconv_close (cd) != 0)
-         perror ("iconv_close");
-
-       return (wchar_t *) wrptr - outbuf;
-     }
-
-   This example shows the most important aspects of using the 'iconv'
-functions.  It shows how successive calls to 'iconv' can be used to
-convert large amounts of text.  The user does not have to care about
-stateful encodings as the functions take care of everything.
-
-   An interesting point is the case where 'iconv' returns an error and
-'errno' is set to 'EINVAL'.  This is not really an error in the
-transformation.  It can happen whenever the input character set contains
-byte sequences of more than one byte for some character and texts are
-not processed in one piece.  In this case there is a chance that a
-multibyte sequence is cut.  The caller can then simply read the
-remainder of the takes and feed the offending bytes together with new
-character from the input to 'iconv' and continue the work.  The internal
-state kept in the descriptor is _not_ unspecified after such an event as
-is the case with the conversion functions from the ISO C standard.
-
-   The example also shows the problem of using wide character strings
-with 'iconv'.  As explained in the description of the 'iconv' function
-above, the function always takes a pointer to a 'char' array and the
-available space is measured in bytes.  In the example, the output buffer
-is a wide character buffer; therefore, we use a local variable WRPTR of
-type 'char *', which is used in the 'iconv' calls.
-
-   This looks rather innocent but can lead to problems on platforms that
-have tight restriction on alignment.  Therefore the caller of 'iconv'
-has to make sure that the pointers passed are suitable for access of
-characters from the appropriate character set.  Since, in the above
-case, the input parameter to the function is a 'wchar_t' pointer, this
-is the case (unless the user violates alignment when computing the
-parameter).  But in other situations, especially when writing generic
-functions where one does not know what type of character set one uses
-and, therefore, treats text as a sequence of bytes, it might become
-tricky.
-
-
-File: libc.info,  Node: Other iconv Implementations,  Next: glibc iconv Implementation,  Prev: iconv Examples,  Up: Generic Charset Conversion
-
-6.5.3 Some Details about other 'iconv' Implementations
-------------------------------------------------------
-
-This is not really the place to discuss the 'iconv' implementation of
-other systems but it is necessary to know a bit about them to write
-portable programs.  The above mentioned problems with the specification
-of the 'iconv' functions can lead to portability issues.
-
-   The first thing to notice is that, due to the large number of
-character sets in use, it is certainly not practical to encode the
-conversions directly in the C library.  Therefore, the conversion
-information must come from files outside the C library.  This is usually
-done in one or both of the following ways:
-
-   * The C library contains a set of generic conversion functions that
-     can read the needed conversion tables and other information from
-     data files.  These files get loaded when necessary.
-
-     This solution is problematic as it requires a great deal of effort
-     to apply to all character sets (potentially an infinite set).  The
-     differences in the structure of the different character sets is so
-     large that many different variants of the table-processing
-     functions must be developed.  In addition, the generic nature of
-     these functions make them slower than specifically implemented
-     functions.
-
-   * The C library only contains a framework that can dynamically load
-     object files and execute the conversion functions contained
-     therein.
-
-     This solution provides much more flexibility.  The C library itself
-     contains only very little code and therefore reduces the general
-     memory footprint.  Also, with a documented interface between the C
-     library and the loadable modules it is possible for third parties
-     to extend the set of available conversion modules.  A drawback of
-     this solution is that dynamic loading must be available.
-
-   Some implementations in commercial Unices implement a mixture of
-these possibilities; the majority implement only the second solution.
-Using loadable modules moves the code out of the library itself and
-keeps the door open for extensions and improvements, but this design is
-also limiting on some platforms since not many platforms support dynamic
-loading in statically linked programs.  On platforms without this
-capability it is therefore not possible to use this interface in
-statically linked programs.  The GNU C Library has, on ELF platforms, no
-problems with dynamic loading in these situations; therefore, this point
-is moot.  The danger is that one gets acquainted with this situation and
-forgets about the restrictions on other systems.
-
-   A second thing to know about other 'iconv' implementations is that
-the number of available conversions is often very limited.  Some
-implementations provide, in the standard release (not special
-international or developer releases), at most 100 to 200 conversion
-possibilities.  This does not mean 200 different character sets are
-supported; for example, conversions from one character set to a set of
-10 others might count as 10 conversions.  Together with the other
-direction this makes 20 conversion possibilities used up by one
-character set.  One can imagine the thin coverage these platform
-provide.  Some Unix vendors even provide only a handful of conversions,
-which renders them useless for almost all uses.
-
-   This directly leads to a third and probably the most problematic
-point.  The way the 'iconv' conversion functions are implemented on all
-known Unix systems and the availability of the conversion functions from
-character set A to B and the conversion from B to C does _not_ imply
-that the conversion from A to C is available.
-
-   This might not seem unreasonable and problematic at first, but it is
-a quite big problem as one will notice shortly after hitting it.  To
-show the problem we assume to write a program that has to convert from A
-to C.  A call like
-
-     cd = iconv_open ("C", "A");
-
-fails according to the assumption above.  But what does the program do
-now?  The conversion is necessary; therefore, simply giving up is not an
-option.
-
-   This is a nuisance.  The 'iconv' function should take care of this.
-But how should the program proceed from here on?  If it tries to convert
-to character set B, first the two 'iconv_open' calls
-
-     cd1 = iconv_open ("B", "A");
-
-and
-
-     cd2 = iconv_open ("C", "B");
-
-will succeed, but how to find B?
-
-   Unfortunately, the answer is: there is no general solution.  On some
-systems guessing might help.  On those systems most character sets can
-convert to and from UTF-8 encoded ISO 10646 or Unicode text.  Beside
-this only some very system-specific methods can help.  Since the
-conversion functions come from loadable modules and these modules must
-be stored somewhere in the filesystem, one _could_ try to find them and
-determine from the available file which conversions are available and
-whether there is an indirect route from A to C.
-
-   This example shows one of the design errors of 'iconv' mentioned
-above.  It should at least be possible to determine the list of
-available conversion programmatically so that if 'iconv_open' says there
-is no such conversion, one could make sure this also is true for
-indirect routes.
-
-
-File: libc.info,  Node: glibc iconv Implementation,  Prev: Other iconv Implementations,  Up: Generic Charset Conversion
-
-6.5.4 The 'iconv' Implementation in the GNU C Library
------------------------------------------------------
-
-After reading about the problems of 'iconv' implementations in the last
-section it is certainly good to note that the implementation in the GNU
-C Library has none of the problems mentioned above.  What follows is a
-step-by-step analysis of the points raised above.  The evaluation is
-based on the current state of the development (as of January 1999).  The
-development of the 'iconv' functions is not complete, but basic
-functionality has solidified.
-
-   The GNU C Library's 'iconv' implementation uses shared loadable
-modules to implement the conversions.  A very small number of
-conversions are built into the library itself but these are only rather
-trivial conversions.
-
-   All the benefits of loadable modules are available in the GNU C
-Library implementation.  This is especially appealing since the
-interface is well documented (see below), and it, therefore, is easy to
-write new conversion modules.  The drawback of using loadable objects is
-not a problem in the GNU C Library, at least on ELF systems.  Since the
-library is able to load shared objects even in statically linked
-binaries, static linking need not be forbidden in case one wants to use
-'iconv'.
-
-   The second mentioned problem is the number of supported conversions.
-Currently, the GNU C Library supports more than 150 character sets.  The
-way the implementation is designed the number of supported conversions
-is greater than 22350 (150 times 149).  If any conversion from or to a
-character set is missing, it can be added easily.
-
-   Particularly impressive as it may be, this high number is due to the
-fact that the GNU C Library implementation of 'iconv' does not have the
-third problem mentioned above (i.e., whenever there is a conversion from
-a character set A to B and from B to C it is always possible to convert
-from A to C directly).  If the 'iconv_open' returns an error and sets
-'errno' to 'EINVAL', there is no known way, directly or indirectly, to
-perform the wanted conversion.
-
-   Triangulation is achieved by providing for each character set a
-conversion from and to UCS-4 encoded ISO 10646.  Using ISO 10646 as an
-intermediate representation it is possible to "triangulate" (i.e.,
-convert with an intermediate representation).
-
-   There is no inherent requirement to provide a conversion to ISO 10646
-for a new character set, and it is also possible to provide other
-conversions where neither source nor destination character set is
-ISO 10646.  The existing set of conversions is simply meant to cover all
-conversions that might be of interest.
-
-   All currently available conversions use the triangulation method
-above, making conversion run unnecessarily slow.  If, for example,
-somebody often needs the conversion from ISO-2022-JP to EUC-JP, a
-quicker solution would involve direct conversion between the two
-character sets, skipping the input to ISO 10646 first.  The two
-character sets of interest are much more similar to each other than to
-ISO 10646.
-
-   In such a situation one easily can write a new conversion and provide
-it as a better alternative.  The GNU C Library 'iconv' implementation
-would automatically use the module implementing the conversion if it is
-specified to be more efficient.
-
-6.5.4.1 Format of 'gconv-modules' files
-.......................................
-
-All information about the available conversions comes from a file named
-'gconv-modules', which can be found in any of the directories along the
-'GCONV_PATH'.  The 'gconv-modules' files are line-oriented text files,
-where each of the lines has one of the following formats:
-
-   * If the first non-whitespace character is a '#' the line contains
-     only comments and is ignored.
-
-   * Lines starting with 'alias' define an alias name for a character
-     set.  Two more words are expected on the line.  The first word
-     defines the alias name, and the second defines the original name of
-     the character set.  The effect is that it is possible to use the
-     alias name in the FROMSET or TOSET parameters of 'iconv_open' and
-     achieve the same result as when using the real character set name.
-
-     This is quite important as a character set has often many different
-     names.  There is normally an official name but this need not
-     correspond to the most popular name.  Beside this many character
-     sets have special names that are somehow constructed.  For example,
-     all character sets specified by the ISO have an alias of the form
-     'ISO-IR-NNN' where NNN is the registration number.  This allows
-     programs that know about the registration number to construct
-     character set names and use them in 'iconv_open' calls.  More on
-     the available names and aliases follows below.
-
-   * Lines starting with 'module' introduce an available conversion
-     module.  These lines must contain three or four more words.
-
-     The first word specifies the source character set, the second word
-     the destination character set of conversion implemented in this
-     module, and the third word is the name of the loadable module.  The
-     filename is constructed by appending the usual shared object suffix
-     (normally '.so') and this file is then supposed to be found in the
-     same directory the 'gconv-modules' file is in.  The last word on
-     the line, which is optional, is a numeric value representing the
-     cost of the conversion.  If this word is missing, a cost of 1 is
-     assumed.  The numeric value itself does not matter that much; what
-     counts are the relative values of the sums of costs for all
-     possible conversion paths.  Below is a more precise description of
-     the use of the cost value.
-
-   Returning to the example above where one has written a module to
-directly convert from ISO-2022-JP to EUC-JP and back.  All that has to
-be done is to put the new module, let its name be ISO2022JP-EUCJP.so, in
-a directory and add a file 'gconv-modules' with the following content in
-the same directory:
-
-     module  ISO-2022-JP//   EUC-JP//        ISO2022JP-EUCJP    1
-     module  EUC-JP//        ISO-2022-JP//   ISO2022JP-EUCJP    1
-
-   To see why this is sufficient, it is necessary to understand how the
-conversion used by 'iconv' (and described in the descriptor) is
-selected.  The approach to this problem is quite simple.
-
-   At the first call of the 'iconv_open' function the program reads all
-available 'gconv-modules' files and builds up two tables: one containing
-all the known aliases and another that contains the information about
-the conversions and which shared object implements them.
-
-6.5.4.2 Finding the conversion path in 'iconv'
-..............................................
-
-The set of available conversions form a directed graph with weighted
-edges.  The weights on the edges are the costs specified in the
-'gconv-modules' files.  The 'iconv_open' function uses an algorithm
-suitable for search for the best path in such a graph and so constructs
-a list of conversions that must be performed in succession to get the
-transformation from the source to the destination character set.
-
-   Explaining why the above 'gconv-modules' files allows the 'iconv'
-implementation to resolve the specific ISO-2022-JP to EUC-JP conversion
-module instead of the conversion coming with the library itself is
-straightforward.  Since the latter conversion takes two steps (from
-ISO-2022-JP to ISO 10646 and then from ISO 10646 to EUC-JP), the cost is
-1+1 = 2.  The above 'gconv-modules' file, however, specifies that the
-new conversion modules can perform this conversion with only the cost of
-1.
-
-   A mysterious item about the 'gconv-modules' file above (and also the
-file coming with the GNU C Library) are the names of the character sets
-specified in the 'module' lines.  Why do almost all the names end in
-'//'?  And this is not all: the names can actually be regular
-expressions.  At this point in time this mystery should not be revealed,
-unless you have the relevant spell-casting materials: ashes from an
-original DOS 6.2 boot disk burnt in effigy, a crucifix blessed by St.
-Emacs, assorted herbal roots from Central America, sand from Cebu, etc.
-Sorry!  *The part of the implementation where this is used is not yet
-finished.  For now please simply follow the existing examples.  It'll
-become clearer once it is.  -drepper*
-
-   A last remark about the 'gconv-modules' is about the names not ending
-with '//'.  A character set named 'INTERNAL' is often mentioned.  From
-the discussion above and the chosen name it should have become clear
-that this is the name for the representation used in the intermediate
-step of the triangulation.  We have said that this is UCS-4 but actually
-that is not quite right.  The UCS-4 specification also includes the
-specification of the byte ordering used.  Since a UCS-4 value consists
-of four bytes, a stored value is affected by byte ordering.  The
-internal representation is _not_ the same as UCS-4 in case the byte
-ordering of the processor (or at least the running process) is not the
-same as the one required for UCS-4.  This is done for performance
-reasons as one does not want to perform unnecessary byte-swapping
-operations if one is not interested in actually seeing the result in
-UCS-4.  To avoid trouble with endianness, the internal representation
-consistently is named 'INTERNAL' even on big-endian systems where the
-representations are identical.
-
-6.5.4.3 'iconv' module data structures
-......................................
-
-So far this section has described how modules are located and considered
-to be used.  What remains to be described is the interface of the
-modules so that one can write new ones.  This section describes the
-interface as it is in use in January 1999.  The interface will change a
-bit in the future but, with luck, only in an upwardly compatible way.
-
-   The definitions necessary to write new modules are publicly available
-in the non-standard header 'gconv.h'.  The following text, therefore,
-describes the definitions from this header file.  First, however, it is
-necessary to get an overview.
-
-   From the perspective of the user of 'iconv' the interface is quite
-simple: the 'iconv_open' function returns a handle that can be used in
-calls to 'iconv', and finally the handle is freed with a call to
-'iconv_close'.  The problem is that the handle has to be able to
-represent the possibly long sequences of conversion steps and also the
-state of each conversion since the handle is all that is passed to the
-'iconv' function.  Therefore, the data structures are really the
-elements necessary to understanding the implementation.
-
-   We need two different kinds of data structures.  The first describes
-the conversion and the second describes the state etc.  There are really
-two type definitions like this in 'gconv.h'.
-
- -- Data type: struct __gconv_step
-     This data structure describes one conversion a module can perform.
-     For each function in a loaded module with conversion functions
-     there is exactly one object of this type.  This object is shared by
-     all users of the conversion (i.e., this object does not contain any
-     information corresponding to an actual conversion; it only
-     describes the conversion itself).
-
-     'struct __gconv_loaded_object *__shlib_handle'
-     'const char *__modname'
-     'int __counter'
-          All these elements of the structure are used internally in the
-          C library to coordinate loading and unloading the shared.  One
-          must not expect any of the other elements to be available or
-          initialized.
-
-     'const char *__from_name'
-     'const char *__to_name'
-          '__from_name' and '__to_name' contain the names of the source
-          and destination character sets.  They can be used to identify
-          the actual conversion to be carried out since one module might
-          implement conversions for more than one character set and/or
-          direction.
-
-     'gconv_fct __fct'
-     'gconv_init_fct __init_fct'
-     'gconv_end_fct __end_fct'
-          These elements contain pointers to the functions in the
-          loadable module.  The interface will be explained below.
-
-     'int __min_needed_from'
-     'int __max_needed_from'
-     'int __min_needed_to'
-     'int __max_needed_to;'
-          These values have to be supplied in the init function of the
-          module.  The '__min_needed_from' value specifies how many
-          bytes a character of the source character set at least needs.
-          The '__max_needed_from' specifies the maximum value that also
-          includes possible shift sequences.
-
-          The '__min_needed_to' and '__max_needed_to' values serve the
-          same purpose as '__min_needed_from' and '__max_needed_from'
-          but this time for the destination character set.
-
-          It is crucial that these values be accurate since otherwise
-          the conversion functions will have problems or not work at
-          all.
-
-     'int __stateful'
-          This element must also be initialized by the init function.
-          'int __stateful' is nonzero if the source character set is
-          stateful.  Otherwise it is zero.
-
-     'void *__data'
-          This element can be used freely by the conversion functions in
-          the module.  'void *__data' can be used to communicate extra
-          information from one call to another.  'void *__data' need not
-          be initialized if not needed at all.  If 'void *__data'
-          element is assigned a pointer to dynamically allocated memory
-          (presumably in the init function) it has to be made sure that
-          the end function deallocates the memory.  Otherwise the
-          application will leak memory.
-
-          It is important to be aware that this data structure is shared
-          by all users of this specification conversion and therefore
-          the '__data' element must not contain data specific to one
-          specific use of the conversion function.
-
- -- Data type: struct __gconv_step_data
-     This is the data structure that contains the information specific
-     to each use of the conversion functions.
-
-     'char *__outbuf'
-     'char *__outbufend'
-          These elements specify the output buffer for the conversion
-          step.  The '__outbuf' element points to the beginning of the
-          buffer, and '__outbufend' points to the byte following the
-          last byte in the buffer.  The conversion function must not
-          assume anything about the size of the buffer but it can be
-          safely assumed the there is room for at least one complete
-          character in the output buffer.
-
-          Once the conversion is finished, if the conversion is the last
-          step, the '__outbuf' element must be modified to point after
-          the last byte written into the buffer to signal how much
-          output is available.  If this conversion step is not the last
-          one, the element must not be modified.  The '__outbufend'
-          element must not be modified.
-
-     'int __is_last'
-          This element is nonzero if this conversion step is the last
-          one.  This information is necessary for the recursion.  See
-          the description of the conversion function internals below.
-          This element must never be modified.
-
-     'int __invocation_counter'
-          The conversion function can use this element to see how many
-          calls of the conversion function already happened.  Some
-          character sets require a certain prolog when generating
-          output, and by comparing this value with zero, one can find
-          out whether it is the first call and whether, therefore, the
-          prolog should be emitted.  This element must never be
-          modified.
-
-     'int __internal_use'
-          This element is another one rarely used but needed in certain
-          situations.  It is assigned a nonzero value in case the
-          conversion functions are used to implement 'mbsrtowcs' et.al.
-          (i.e., the function is not used directly through the 'iconv'
-          interface).
-
-          This sometimes makes a difference as it is expected that the
-          'iconv' functions are used to translate entire texts while the
-          'mbsrtowcs' functions are normally used only to convert single
-          strings and might be used multiple times to convert entire
-          texts.
-
-          But in this situation we would have problem complying with
-          some rules of the character set specification.  Some character
-          sets require a prolog, which must appear exactly once for an
-          entire text.  If a number of 'mbsrtowcs' calls are used to
-          convert the text, only the first call must add the prolog.
-          However, because there is no communication between the
-          different calls of 'mbsrtowcs', the conversion functions have
-          no possibility to find this out.  The situation is different
-          for sequences of 'iconv' calls since the handle allows access
-          to the needed information.
-
-          The 'int __internal_use' element is mostly used together with
-          '__invocation_counter' as follows:
-
-               if (!data->__internal_use
-                    && data->__invocation_counter == 0)
-                 /* Emit prolog.  */
-                 ...
-
-          This element must never be modified.
-
-     'mbstate_t *__statep'
-          The '__statep' element points to an object of type 'mbstate_t'
-          (*note Keeping the state::).  The conversion of a stateful
-          character set must use the object pointed to by '__statep' to
-          store information about the conversion state.  The '__statep'
-          element itself must never be modified.
-
-     'mbstate_t __state'
-          This element must _never_ be used directly.  It is only part
-          of this structure to have the needed space allocated.
-
-6.5.4.4 'iconv' module interfaces
-.................................
-
-With the knowledge about the data structures we now can describe the
-conversion function itself.  To understand the interface a bit of
-knowledge is necessary about the functionality in the C library that
-loads the objects with the conversions.
-
-   It is often the case that one conversion is used more than once
-(i.e., there are several 'iconv_open' calls for the same set of
-character sets during one program run).  The 'mbsrtowcs' et.al.
-functions in the GNU C Library also use the 'iconv' functionality, which
-increases the number of uses of the same functions even more.
-
-   Because of this multiple use of conversions, the modules do not get
-loaded exclusively for one conversion.  Instead a module once loaded can
-be used by an arbitrary number of 'iconv' or 'mbsrtowcs' calls at the
-same time.  The splitting of the information between conversion-
-function-specific information and conversion data makes this possible.
-The last section showed the two data structures used to do this.
-
-   This is of course also reflected in the interface and semantics of
-the functions that the modules must provide.  There are three functions
-that must have the following names:
-
-'gconv_init'
-     The 'gconv_init' function initializes the conversion function
-     specific data structure.  This very same object is shared by all
-     conversions that use this conversion and, therefore, no state
-     information about the conversion itself must be stored in here.  If
-     a module implements more than one conversion, the 'gconv_init'
-     function will be called multiple times.
-
-'gconv_end'
-     The 'gconv_end' function is responsible for freeing all resources
-     allocated by the 'gconv_init' function.  If there is nothing to do,
-     this function can be missing.  Special care must be taken if the
-     module implements more than one conversion and the 'gconv_init'
-     function does not allocate the same resources for all conversions.
-
-'gconv'
-     This is the actual conversion function.  It is called to convert
-     one block of text.  It gets passed the conversion step information
-     initialized by 'gconv_init' and the conversion data, specific to
-     this use of the conversion functions.
-
-   There are three data types defined for the three module interface
-functions and these define the interface.
-
- -- Data type: int (*__gconv_init_fct) (struct __gconv_step *)
-     This specifies the interface of the initialization function of the
-     module.  It is called exactly once for each conversion the module
-     implements.
-
-     As explained in the description of the 'struct __gconv_step' data
-     structure above the initialization function has to initialize parts
-     of it.
-
-     '__min_needed_from'
-     '__max_needed_from'
-     '__min_needed_to'
-     '__max_needed_to'
-          These elements must be initialized to the exact numbers of the
-          minimum and maximum number of bytes used by one character in
-          the source and destination character sets, respectively.  If
-          the characters all have the same size, the minimum and maximum
-          values are the same.
-
-     '__stateful'
-          This element must be initialized to an nonzero value if the
-          source character set is stateful.  Otherwise it must be zero.
-
-     If the initialization function needs to communicate some
-     information to the conversion function, this communication can
-     happen using the '__data' element of the '__gconv_step' structure.
-     But since this data is shared by all the conversions, it must not
-     be modified by the conversion function.  The example below shows
-     how this can be used.
-
-          #define MIN_NEEDED_FROM         1
-          #define MAX_NEEDED_FROM         4
-          #define MIN_NEEDED_TO           4
-          #define MAX_NEEDED_TO           4
-
-          int
-          gconv_init (struct __gconv_step *step)
-          {
-            /* Determine which direction.  */
-            struct iso2022jp_data *new_data;
-            enum direction dir = illegal_dir;
-            enum variant var = illegal_var;
-            int result;
-
-            if (__strcasecmp (step->__from_name, "ISO-2022-JP//") == 0)
-              {
-                dir = from_iso2022jp;
-                var = iso2022jp;
-              }
-            else if (__strcasecmp (step->__to_name, "ISO-2022-JP//") == 0)
-              {
-                dir = to_iso2022jp;
-                var = iso2022jp;
-              }
-            else if (__strcasecmp (step->__from_name, "ISO-2022-JP-2//") == 0)
-              {
-                dir = from_iso2022jp;
-                var = iso2022jp2;
-              }
-            else if (__strcasecmp (step->__to_name, "ISO-2022-JP-2//") == 0)
-              {
-                dir = to_iso2022jp;
-                var = iso2022jp2;
-              }
-
-            result = __GCONV_NOCONV;
-            if (dir != illegal_dir)
-              {
-                new_data = (struct iso2022jp_data *)
-                  malloc (sizeof (struct iso2022jp_data));
-
-                result = __GCONV_NOMEM;
-                if (new_data != NULL)
-                  {
-                    new_data->dir = dir;
-                    new_data->var = var;
-                    step->__data = new_data;
-
-                    if (dir == from_iso2022jp)
-                      {
-                        step->__min_needed_from = MIN_NEEDED_FROM;
-                        step->__max_needed_from = MAX_NEEDED_FROM;
-                        step->__min_needed_to = MIN_NEEDED_TO;
-                        step->__max_needed_to = MAX_NEEDED_TO;
-                      }
-                    else
-                      {
-                        step->__min_needed_from = MIN_NEEDED_TO;
-                        step->__max_needed_from = MAX_NEEDED_TO;
-                        step->__min_needed_to = MIN_NEEDED_FROM;
-                        step->__max_needed_to = MAX_NEEDED_FROM + 2;
-                      }
-
-                    /* Yes, this is a stateful encoding.  */
-                    step->__stateful = 1;
-
-                    result = __GCONV_OK;
-                  }
-              }
-
-            return result;
-          }
-
-     The function first checks which conversion is wanted.  The module
-     from which this function is taken implements four different
-     conversions; which one is selected can be determined by comparing
-     the names.  The comparison should always be done without paying
-     attention to the case.
-
-     Next, a data structure, which contains the necessary information
-     about which conversion is selected, is allocated.  The data
-     structure 'struct iso2022jp_data' is locally defined since, outside
-     the module, this data is not used at all.  Please note that if all
-     four conversions this modules supports are requested there are four
-     data blocks.
-
-     One interesting thing is the initialization of the '__min_' and
-     '__max_' elements of the step data object.  A single ISO-2022-JP
-     character can consist of one to four bytes.  Therefore the
-     'MIN_NEEDED_FROM' and 'MAX_NEEDED_FROM' macros are defined this
-     way.  The output is always the 'INTERNAL' character set (aka UCS-4)
-     and therefore each character consists of exactly four bytes.  For
-     the conversion from 'INTERNAL' to ISO-2022-JP we have to take into
-     account that escape sequences might be necessary to switch the
-     character sets.  Therefore the '__max_needed_to' element for this
-     direction gets assigned 'MAX_NEEDED_FROM + 2'.  This takes into
-     account the two bytes needed for the escape sequences to single the
-     switching.  The asymmetry in the maximum values for the two
-     directions can be explained easily: when reading ISO-2022-JP text,
-     escape sequences can be handled alone (i.e., it is not necessary to
-     process a real character since the effect of the escape sequence
-     can be recorded in the state information).  The situation is
-     different for the other direction.  Since it is in general not
-     known which character comes next, one cannot emit escape sequences
-     to change the state in advance.  This means the escape sequences
-     that have to be emitted together with the next character.
-     Therefore one needs more room than only for the character itself.
-
-     The possible return values of the initialization function are:
-
-     '__GCONV_OK'
-          The initialization succeeded
-     '__GCONV_NOCONV'
-          The requested conversion is not supported in the module.  This
-          can happen if the 'gconv-modules' file has errors.
-     '__GCONV_NOMEM'
-          Memory required to store additional information could not be
-          allocated.
-
-   The function called before the module is unloaded is significantly
-easier.  It often has nothing at all to do; in which case it can be left
-out completely.
-
- -- Data type: void (*__gconv_end_fct) (struct gconv_step *)
-     The task of this function is to free all resources allocated in the
-     initialization function.  Therefore only the '__data' element of
-     the object pointed to by the argument is of interest.  Continuing
-     the example from the initialization function, the finalization
-     function looks like this:
-
-          void
-          gconv_end (struct __gconv_step *data)
-          {
-            free (data->__data);
-          }
-
-   The most important function is the conversion function itself, which
-can get quite complicated for complex character sets.  But since this is
-not of interest here, we will only describe a possible skeleton for the
-conversion function.
-
- -- Data type: int (*__gconv_fct) (struct __gconv_step *, struct
-          __gconv_step_data *, const char **, const char *, size_t *,
-          int)
-     The conversion function can be called for two basic reason: to
-     convert text or to reset the state.  From the description of the
-     'iconv' function it can be seen why the flushing mode is necessary.
-     What mode is selected is determined by the sixth argument, an
-     integer.  This argument being nonzero means that flushing is
-     selected.
-
-     Common to both modes is where the output buffer can be found.  The
-     information about this buffer is stored in the conversion step
-     data.  A pointer to this information is passed as the second
-     argument to this function.  The description of the 'struct
-     __gconv_step_data' structure has more information on the conversion
-     step data.
-
-     What has to be done for flushing depends on the source character
-     set.  If the source character set is not stateful, nothing has to
-     be done.  Otherwise the function has to emit a byte sequence to
-     bring the state object into the initial state.  Once this all
-     happened the other conversion modules in the chain of conversions
-     have to get the same chance.  Whether another step follows can be
-     determined from the '__is_last' element of the step data structure
-     to which the first parameter points.
-
-     The more interesting mode is when actual text has to be converted.
-     The first step in this case is to convert as much text as possible
-     from the input buffer and store the result in the output buffer.
-     The start of the input buffer is determined by the third argument,
-     which is a pointer to a pointer variable referencing the beginning
-     of the buffer.  The fourth argument is a pointer to the byte right
-     after the last byte in the buffer.
-
-     The conversion has to be performed according to the current state
-     if the character set is stateful.  The state is stored in an object
-     pointed to by the '__statep' element of the step data (second
-     argument).  Once either the input buffer is empty or the output
-     buffer is full the conversion stops.  At this point, the pointer
-     variable referenced by the third parameter must point to the byte
-     following the last processed byte (i.e., if all of the input is
-     consumed, this pointer and the fourth parameter have the same
-     value).
-
-     What now happens depends on whether this step is the last one.  If
-     it is the last step, the only thing that has to be done is to
-     update the '__outbuf' element of the step data structure to point
-     after the last written byte.  This update gives the caller the
-     information on how much text is available in the output buffer.  In
-     addition, the variable pointed to by the fifth parameter, which is
-     of type 'size_t', must be incremented by the number of characters
-     (_not bytes_) that were converted in a non-reversible way.  Then,
-     the function can return.
-
-     In case the step is not the last one, the later conversion
-     functions have to get a chance to do their work.  Therefore, the
-     appropriate conversion function has to be called.  The information
-     about the functions is stored in the conversion data structures,
-     passed as the first parameter.  This information and the step data
-     are stored in arrays, so the next element in both cases can be
-     found by simple pointer arithmetic:
-
-          int
-          gconv (struct __gconv_step *step, struct __gconv_step_data *data,
-                 const char **inbuf, const char *inbufend, size_t *written,
-                 int do_flush)
-          {
-            struct __gconv_step *next_step = step + 1;
-            struct __gconv_step_data *next_data = data + 1;
-            ...
-
-     The 'next_step' pointer references the next step information and
-     'next_data' the next data record.  The call of the next function
-     therefore will look similar to this:
-
-            next_step->__fct (next_step, next_data, &outerr, outbuf,
-                              written, 0)
-
-     But this is not yet all.  Once the function call returns the
-     conversion function might have some more to do.  If the return
-     value of the function is '__GCONV_EMPTY_INPUT', more room is
-     available in the output buffer.  Unless the input buffer is empty
-     the conversion, functions start all over again and process the rest
-     of the input buffer.  If the return value is not
-     '__GCONV_EMPTY_INPUT', something went wrong and we have to recover
-     from this.
-
-     A requirement for the conversion function is that the input buffer
-     pointer (the third argument) always point to the last character
-     that was put in converted form into the output buffer.  This is
-     trivially true after the conversion performed in the current step,
-     but if the conversion functions deeper downstream stop prematurely,
-     not all characters from the output buffer are consumed and,
-     therefore, the input buffer pointers must be backed off to the
-     right position.
-
-     Correcting the input buffers is easy to do if the input and output
-     character sets have a fixed width for all characters.  In this
-     situation we can compute how many characters are left in the output
-     buffer and, therefore, can correct the input buffer pointer
-     appropriately with a similar computation.  Things are getting
-     tricky if either character set has characters represented with
-     variable length byte sequences, and it gets even more complicated
-     if the conversion has to take care of the state.  In these cases
-     the conversion has to be performed once again, from the known state
-     before the initial conversion (i.e., if necessary the state of the
-     conversion has to be reset and the conversion loop has to be
-     executed again).  The difference now is that it is known how much
-     input must be created, and the conversion can stop before
-     converting the first unused character.  Once this is done the input
-     buffer pointers must be updated again and the function can return.
-
-     One final thing should be mentioned.  If it is necessary for the
-     conversion to know whether it is the first invocation (in case a
-     prolog has to be emitted), the conversion function should increment
-     the '__invocation_counter' element of the step data structure just
-     before returning to the caller.  See the description of the 'struct
-     __gconv_step_data' structure above for more information on how this
-     can be used.
-
-     The return value must be one of the following values:
-
-     '__GCONV_EMPTY_INPUT'
-          All input was consumed and there is room left in the output
-          buffer.
-     '__GCONV_FULL_OUTPUT'
-          No more room in the output buffer.  In case this is not the
-          last step this value is propagated down from the call of the
-          next conversion function in the chain.
-     '__GCONV_INCOMPLETE_INPUT'
-          The input buffer is not entirely empty since it contains an
-          incomplete character sequence.
-
-     The following example provides a framework for a conversion
-     function.  In case a new conversion has to be written the holes in
-     this implementation have to be filled and that is it.
-
-          int
-          gconv (struct __gconv_step *step, struct __gconv_step_data *data,
-                 const char **inbuf, const char *inbufend, size_t *written,
-                 int do_flush)
-          {
-            struct __gconv_step *next_step = step + 1;
-            struct __gconv_step_data *next_data = data + 1;
-            gconv_fct fct = next_step->__fct;
-            int status;
-
-            /* If the function is called with no input this means we have
-               to reset to the initial state.  The possibly partly
-               converted input is dropped.  */
-            if (do_flush)
-              {
-                status = __GCONV_OK;
-
-                /* Possible emit a byte sequence which put the state object
-                   into the initial state.  */
-
-                /* Call the steps down the chain if there are any but only
-                   if we successfully emitted the escape sequence.  */
-                if (status == __GCONV_OK && ! data->__is_last)
-                  status = fct (next_step, next_data, NULL, NULL,
-                                written, 1);
-              }
-            else
-              {
-                /* We preserve the initial values of the pointer variables.  */
-                const char *inptr = *inbuf;
-                char *outbuf = data->__outbuf;
-                char *outend = data->__outbufend;
-                char *outptr;
-
-                do
-                  {
-                    /* Remember the start value for this round.  */
-                    inptr = *inbuf;
-                    /* The outbuf buffer is empty.  */
-                    outptr = outbuf;
-
-                    /* For stateful encodings the state must be safe here.  */
-
-                    /* Run the conversion loop.  'status' is set
-                       appropriately afterwards.  */
-
-                    /* If this is the last step, leave the loop. There is
-                       nothing we can do.  */
-                    if (data->__is_last)
-                      {
-                        /* Store information about how many bytes are
-                           available.  */
-                        data->__outbuf = outbuf;
-
-                       /* If any non-reversible conversions were performed,
-                          add the number to '*written'.  */
-
-                       break;
-                     }
-
-                    /* Write out all output that was produced.  */
-                    if (outbuf > outptr)
-                      {
-                        const char *outerr = data->__outbuf;
-                        int result;
-
-                        result = fct (next_step, next_data, &outerr,
-                                      outbuf, written, 0);
-
-                        if (result != __GCONV_EMPTY_INPUT)
-                          {
-                            if (outerr != outbuf)
-                              {
-                                /* Reset the input buffer pointer.  We
-                                   document here the complex case.  */
-                                size_t nstatus;
-
-                                /* Reload the pointers.  */
-                                *inbuf = inptr;
-                                outbuf = outptr;
-
-                                /* Possibly reset the state.  */
-
-                                /* Redo the conversion, but this time
-                                   the end of the output buffer is at
-                                   'outerr'.  */
-                              }
-
-                            /* Change the status.  */
-                            status = result;
-                          }
-                        else
-                          /* All the output is consumed, we can make
-                              another run if everything was ok.  */
-                          if (status == __GCONV_FULL_OUTPUT)
-                            status = __GCONV_OK;
-                     }
-                  }
-                while (status == __GCONV_OK);
-
-                /* We finished one use of this step.  */
-                ++data->__invocation_counter;
-              }
-
-            return status;
-          }
-
-   This information should be sufficient to write new modules.  Anybody
-doing so should also take a look at the available source code in the GNU
-C Library sources.  It contains many examples of working and optimized
-modules.
 

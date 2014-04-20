@@ -544,6 +544,11 @@ DEFPARAM(PARAM_VECT_MAX_VERSION_FOR_ALIAS_CHECKS,
          "Bound on number of runtime checks inserted by the vectorizer's loop versioning for alias check",
          10, 0, 0)
 
+DEFPARAM(PARAM_VECT_MAX_PEELING_FOR_ALIGNMENT,
+         "vect-max-peeling-for-alignment",
+         "Max number of loop peels to enhancement alignment of data references in a loop",
+         -1, -1, 64)
+
 DEFPARAM(PARAM_MAX_CSELIB_MEMORY_LOCATIONS,
 	 "max-cselib-memory-locations",
 	 "The maximum memory locations recorded by cselib",
@@ -1013,6 +1018,12 @@ DEFPARAM (PARAM_MAX_SLSR_CANDIDATE_SCAN,
 	  "Maximum length of candidate scans for straight-line "
 	  "strength reduction",
 	  50, 1, 999999)
+
+DEFPARAM (PARAM_UNINIT_CONTROL_DEP_ATTEMPTS,
+	  "uninit-control-dep-attempts",
+	  "Maximum number of nested calls to search for control dependencies "
+	  "during uninitialized variable analysis",
+	  1000, 1, 0)
 
 /*
 Local variables:

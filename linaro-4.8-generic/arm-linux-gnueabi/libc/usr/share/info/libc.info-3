@@ -3,9 +3,9 @@ This is libc.info, produced by makeinfo version 5.1 from libc.texinfo.
 This file documents the GNU C Library.
 
    This is 'The GNU C Library Reference Manual', for version
-2.18-2013.10 (crosstool-NG linaro-1.13.1+bzr2644 - Linaro GCC 2014.01).
+2.19-2014.04 (crosstool-NG linaro-1.13.1+bzr2650 - Linaro GCC 2014.04).
 
-   Copyright (C) 1993-2013 Free Software Foundation, Inc.
+   Copyright (C) 1993-2014 Free Software Foundation, Inc.
 
    Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.3 or
@@ -512,6 +512,7 @@ START-INFO-DIR-ENTRY
 * aio_write64: (libc)Asynchronous Reads/Writes.
 * aio_write: (libc)Asynchronous Reads/Writes.
 * alarm: (libc)Setting an Alarm.
+* aligned_alloc: (libc)Aligned Memory Blocks.
 * alloca: (libc)Variable Size Automatic.
 * alphasort64: (libc)Scanning Directory Content.
 * alphasort: (libc)Scanning Directory Content.
@@ -944,7 +945,6 @@ START-INFO-DIR-ENTRY
 * getpeername: (libc)Who is Connected.
 * getpgid: (libc)Process Group Functions.
 * getpgrp: (libc)Process Group Functions.
-* getpgrp: (libc)Process Group Functions.
 * getpid: (libc)Process Identification.
 * getppid: (libc)Process Identification.
 * getpriority: (libc)Traditional Scheduling Functions.
@@ -1288,7 +1288,11 @@ START-INFO-DIR-ENTRY
 * printf_size_info: (libc)Predefined Printf Handlers.
 * psignal: (libc)Signal Messages.
 * pthread_getattr_default_np: (libc)Default Thread Attributes.
-* pthread_getattr_default_np: (libc)Default Thread Attributes.
+* pthread_getspecific: (libc)Thread-specific Data.
+* pthread_key_create: (libc)Thread-specific Data.
+* pthread_key_delete: (libc)Thread-specific Data.
+* pthread_setattr_default_np: (libc)Default Thread Attributes.
+* pthread_setspecific: (libc)Thread-specific Data.
 * ptsname: (libc)Allocation.
 * ptsname_r: (libc)Allocation.
 * putc: (libc)Simple Output.
@@ -1426,6 +1430,8 @@ START-INFO-DIR-ENTRY
 * setutent: (libc)Manipulating the Database.
 * setutxent: (libc)XPG Functions.
 * setvbuf: (libc)Controlling Buffering.
+* shm_open: (libc)Memory-mapped I/O.
+* shm_unlink: (libc)Memory-mapped I/O.
 * shutdown: (libc)Closing a Socket.
 * sigaction: (libc)Advanced Signal Handling.
 * sigaddset: (libc)Signal Sets.
@@ -1704,6 +1710,1479 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
 
 
+File: libc.info,  Node: Non-reentrant String Conversion,  Next: Shift State,  Prev: Non-reentrant Character Conversion,  Up: Non-reentrant Conversion
+
+6.4.2 Non-reentrant Conversion of Strings
+-----------------------------------------
+
+For convenience the ISO C90 standard also defines functions to convert
+entire strings instead of single characters.  These functions suffer
+from the same problems as their reentrant counterparts from Amendment 1
+to ISO C90; see *note Converting Strings::.
+
+ -- Function: size_t mbstowcs (wchar_t *WSTRING, const char *STRING,
+          size_t SIZE)
+     Preliminary: | MT-Safe | AS-Unsafe corrupt heap lock dlopen |
+     AC-Unsafe corrupt lock mem fd | *Note POSIX Safety Concepts::.
+
+     The 'mbstowcs' ("multibyte string to wide character string")
+     function converts the null-terminated string of multibyte
+     characters STRING to an array of wide character codes, storing not
+     more than SIZE wide characters into the array beginning at WSTRING.
+     The terminating null character counts towards the size, so if SIZE
+     is less than the actual number of wide characters resulting from
+     STRING, no terminating null character is stored.
+
+     The conversion of characters from STRING begins in the initial
+     shift state.
+
+     If an invalid multibyte character sequence is found, the 'mbstowcs'
+     function returns a value of -1.  Otherwise, it returns the number
+     of wide characters stored in the array WSTRING.  This number does
+     not include the terminating null character, which is present if the
+     number is less than SIZE.
+
+     Here is an example showing how to convert a string of multibyte
+     characters, allocating enough space for the result.
+
+          wchar_t *
+          mbstowcs_alloc (const char *string)
+          {
+            size_t size = strlen (string) + 1;
+            wchar_t *buf = xmalloc (size * sizeof (wchar_t));
+
+            size = mbstowcs (buf, string, size);
+            if (size == (size_t) -1)
+              return NULL;
+            buf = xrealloc (buf, (size + 1) * sizeof (wchar_t));
+            return buf;
+          }
+
+ -- Function: size_t wcstombs (char *STRING, const wchar_t *WSTRING,
+          size_t SIZE)
+     Preliminary: | MT-Safe | AS-Unsafe corrupt heap lock dlopen |
+     AC-Unsafe corrupt lock mem fd | *Note POSIX Safety Concepts::.
+
+     The 'wcstombs' ("wide character string to multibyte string")
+     function converts the null-terminated wide character array WSTRING
+     into a string containing multibyte characters, storing not more
+     than SIZE bytes starting at STRING, followed by a terminating null
+     character if there is room.  The conversion of characters begins in
+     the initial shift state.
+
+     The terminating null character counts towards the size, so if SIZE
+     is less than or equal to the number of bytes needed in WSTRING, no
+     terminating null character is stored.
+
+     If a code that does not correspond to a valid multibyte character
+     is found, the 'wcstombs' function returns a value of -1.
+     Otherwise, the return value is the number of bytes stored in the
+     array STRING.  This number does not include the terminating null
+     character, which is present if the number is less than SIZE.
+
+
+File: libc.info,  Node: Shift State,  Prev: Non-reentrant String Conversion,  Up: Non-reentrant Conversion
+
+6.4.3 States in Non-reentrant Functions
+---------------------------------------
+
+In some multibyte character codes, the _meaning_ of any particular byte
+sequence is not fixed; it depends on what other sequences have come
+earlier in the same string.  Typically there are just a few sequences
+that can change the meaning of other sequences; these few are called
+"shift sequences" and we say that they set the "shift state" for other
+sequences that follow.
+
+   To illustrate shift state and shift sequences, suppose we decide that
+the sequence '0200' (just one byte) enters Japanese mode, in which pairs
+of bytes in the range from '0240' to '0377' are single characters, while
+'0201' enters Latin-1 mode, in which single bytes in the range from
+'0240' to '0377' are characters, and interpreted according to the ISO
+Latin-1 character set.  This is a multibyte code that has two
+alternative shift states ("Japanese mode" and "Latin-1 mode"), and two
+shift sequences that specify particular shift states.
+
+   When the multibyte character code in use has shift states, then
+'mblen', 'mbtowc', and 'wctomb' must maintain and update the current
+shift state as they scan the string.  To make this work properly, you
+must follow these rules:
+
+   * Before starting to scan a string, call the function with a null
+     pointer for the multibyte character address--for example, 'mblen
+     (NULL, 0)'.  This initializes the shift state to its standard
+     initial value.
+
+   * Scan the string one character at a time, in order.  Do not "back
+     up" and rescan characters already scanned, and do not intersperse
+     the processing of different strings.
+
+   Here is an example of using 'mblen' following these rules:
+
+     void
+     scan_string (char *s)
+     {
+       int length = strlen (s);
+
+       /* Initialize shift state.  */
+       mblen (NULL, 0);
+
+       while (1)
+         {
+           int thischar = mblen (s, length);
+           /* Deal with end of string and invalid characters.  */
+           if (thischar == 0)
+             break;
+           if (thischar == -1)
+             {
+               error ("invalid multibyte character");
+               break;
+             }
+           /* Advance past this character.  */
+           s += thischar;
+           length -= thischar;
+         }
+     }
+
+   The functions 'mblen', 'mbtowc' and 'wctomb' are not reentrant when
+using a multibyte code that uses a shift state.  However, no other
+library functions call these functions, so you don't have to worry that
+the shift state will be changed mysteriously.
+
+
+File: libc.info,  Node: Generic Charset Conversion,  Prev: Non-reentrant Conversion,  Up: Character Set Handling
+
+6.5 Generic Charset Conversion
+==============================
+
+The conversion functions mentioned so far in this chapter all had in
+common that they operate on character sets that are not directly
+specified by the functions.  The multibyte encoding used is specified by
+the currently selected locale for the 'LC_CTYPE' category.  The wide
+character set is fixed by the implementation (in the case of the GNU C
+Library it is always UCS-4 encoded ISO 10646.
+
+   This has of course several problems when it comes to general
+character conversion:
+
+   * For every conversion where neither the source nor the destination
+     character set is the character set of the locale for the 'LC_CTYPE'
+     category, one has to change the 'LC_CTYPE' locale using
+     'setlocale'.
+
+     Changing the 'LC_CTYPE' locale introduces major problems for the
+     rest of the programs since several more functions (e.g., the
+     character classification functions, *note Classification of
+     Characters::) use the 'LC_CTYPE' category.
+
+   * Parallel conversions to and from different character sets are not
+     possible since the 'LC_CTYPE' selection is global and shared by all
+     threads.
+
+   * If neither the source nor the destination character set is the
+     character set used for 'wchar_t' representation, there is at least
+     a two-step process necessary to convert a text using the functions
+     above.  One would have to select the source character set as the
+     multibyte encoding, convert the text into a 'wchar_t' text, select
+     the destination character set as the multibyte encoding, and
+     convert the wide character text to the multibyte (= destination)
+     character set.
+
+     Even if this is possible (which is not guaranteed) it is a very
+     tiring work.  Plus it suffers from the other two raised points even
+     more due to the steady changing of the locale.
+
+   The XPG2 standard defines a completely new set of functions, which
+has none of these limitations.  They are not at all coupled to the
+selected locales, and they have no constraints on the character sets
+selected for source and destination.  Only the set of available
+conversions limits them.  The standard does not specify that any
+conversion at all must be available.  Such availability is a measure of
+the quality of the implementation.
+
+   In the following text first the interface to 'iconv' and then the
+conversion function, will be described.  Comparisons with other
+implementations will show what obstacles stand in the way of portable
+applications.  Finally, the implementation is described in so far as
+might interest the advanced user who wants to extend conversion
+capabilities.
+
+* Menu:
+
+* Generic Conversion Interface::    Generic Character Set Conversion Interface.
+* iconv Examples::                  A complete 'iconv' example.
+* Other iconv Implementations::     Some Details about other 'iconv'
+                                     Implementations.
+* glibc iconv Implementation::      The 'iconv' Implementation in the GNU C
+                                     library.
+
+
+File: libc.info,  Node: Generic Conversion Interface,  Next: iconv Examples,  Up: Generic Charset Conversion
+
+6.5.1 Generic Character Set Conversion Interface
+------------------------------------------------
+
+This set of functions follows the traditional cycle of using a resource:
+open-use-close.  The interface consists of three functions, each of
+which implements one step.
+
+   Before the interfaces are described it is necessary to introduce a
+data type.  Just like other open-use-close interfaces the functions
+introduced here work using handles and the 'iconv.h' header defines a
+special type for the handles used.
+
+ -- Data Type: iconv_t
+     This data type is an abstract type defined in 'iconv.h'.  The user
+     must not assume anything about the definition of this type; it must
+     be completely opaque.
+
+     Objects of this type can get assigned handles for the conversions
+     using the 'iconv' functions.  The objects themselves need not be
+     freed, but the conversions for which the handles stand for have to.
+
+The first step is the function to create a handle.
+
+ -- Function: iconv_t iconv_open (const char *TOCODE, const char
+          *FROMCODE)
+     Preliminary: | MT-Safe locale | AS-Unsafe corrupt heap lock dlopen
+     | AC-Unsafe corrupt lock mem fd | *Note POSIX Safety Concepts::.
+
+     The 'iconv_open' function has to be used before starting a
+     conversion.  The two parameters this function takes determine the
+     source and destination character set for the conversion, and if the
+     implementation has the possibility to perform such a conversion,
+     the function returns a handle.
+
+     If the wanted conversion is not available, the 'iconv_open'
+     function returns '(iconv_t) -1'.  In this case the global variable
+     'errno' can have the following values:
+
+     'EMFILE'
+          The process already has 'OPEN_MAX' file descriptors open.
+     'ENFILE'
+          The system limit of open file is reached.
+     'ENOMEM'
+          Not enough memory to carry out the operation.
+     'EINVAL'
+          The conversion from FROMCODE to TOCODE is not supported.
+
+     It is not possible to use the same descriptor in different threads
+     to perform independent conversions.  The data structures associated
+     with the descriptor include information about the conversion state.
+     This must not be messed up by using it in different conversions.
+
+     An 'iconv' descriptor is like a file descriptor as for every use a
+     new descriptor must be created.  The descriptor does not stand for
+     all of the conversions from FROMSET to TOSET.
+
+     The GNU C Library implementation of 'iconv_open' has one
+     significant extension to other implementations.  To ease the
+     extension of the set of available conversions, the implementation
+     allows storing the necessary files with data and code in an
+     arbitrary number of directories.  How this extension must be
+     written will be explained below (*note glibc iconv
+     Implementation::).  Here it is only important to say that all
+     directories mentioned in the 'GCONV_PATH' environment variable are
+     considered only if they contain a file 'gconv-modules'.  These
+     directories need not necessarily be created by the system
+     administrator.  In fact, this extension is introduced to help users
+     writing and using their own, new conversions.  Of course, this does
+     not work for security reasons in SUID binaries; in this case only
+     the system directory is considered and this normally is
+     'PREFIX/lib/gconv'.  The 'GCONV_PATH' environment variable is
+     examined exactly once at the first call of the 'iconv_open'
+     function.  Later modifications of the variable have no effect.
+
+     The 'iconv_open' function was introduced early in the X/Open
+     Portability Guide, version 2.  It is supported by all commercial
+     Unices as it is required for the Unix branding.  However, the
+     quality and completeness of the implementation varies widely.  The
+     'iconv_open' function is declared in 'iconv.h'.
+
+   The 'iconv' implementation can associate large data structure with
+the handle returned by 'iconv_open'.  Therefore, it is crucial to free
+all the resources once all conversions are carried out and the
+conversion is not needed anymore.
+
+ -- Function: int iconv_close (iconv_t CD)
+     Preliminary: | MT-Safe | AS-Unsafe corrupt heap lock dlopen |
+     AC-Unsafe corrupt lock mem | *Note POSIX Safety Concepts::.
+
+     The 'iconv_close' function frees all resources associated with the
+     handle CD, which must have been returned by a successful call to
+     the 'iconv_open' function.
+
+     If the function call was successful the return value is 0.
+     Otherwise it is -1 and 'errno' is set appropriately.  Defined error
+     are:
+
+     'EBADF'
+          The conversion descriptor is invalid.
+
+     The 'iconv_close' function was introduced together with the rest of
+     the 'iconv' functions in XPG2 and is declared in 'iconv.h'.
+
+   The standard defines only one actual conversion function.  This has,
+therefore, the most general interface: it allows conversion from one
+buffer to another.  Conversion from a file to a buffer, vice versa, or
+even file to file can be implemented on top of it.
+
+ -- Function: size_t iconv (iconv_t CD, char **INBUF, size_t
+          *INBYTESLEFT, char **OUTBUF, size_t *OUTBYTESLEFT)
+     Preliminary: | MT-Safe race:cd | AS-Safe | AC-Unsafe corrupt |
+     *Note POSIX Safety Concepts::.
+
+     The 'iconv' function converts the text in the input buffer
+     according to the rules associated with the descriptor CD and stores
+     the result in the output buffer.  It is possible to call the
+     function for the same text several times in a row since for
+     stateful character sets the necessary state information is kept in
+     the data structures associated with the descriptor.
+
+     The input buffer is specified by '*INBUF' and it contains
+     '*INBYTESLEFT' bytes.  The extra indirection is necessary for
+     communicating the used input back to the caller (see below).  It is
+     important to note that the buffer pointer is of type 'char' and the
+     length is measured in bytes even if the input text is encoded in
+     wide characters.
+
+     The output buffer is specified in a similar way.  '*OUTBUF' points
+     to the beginning of the buffer with at least '*OUTBYTESLEFT' bytes
+     room for the result.  The buffer pointer again is of type 'char'
+     and the length is measured in bytes.  If OUTBUF or '*OUTBUF' is a
+     null pointer, the conversion is performed but no output is
+     available.
+
+     If INBUF is a null pointer, the 'iconv' function performs the
+     necessary action to put the state of the conversion into the
+     initial state.  This is obviously a no-op for non-stateful
+     encodings, but if the encoding has a state, such a function call
+     might put some byte sequences in the output buffer, which perform
+     the necessary state changes.  The next call with INBUF not being a
+     null pointer then simply goes on from the initial state.  It is
+     important that the programmer never makes any assumption as to
+     whether the conversion has to deal with states.  Even if the input
+     and output character sets are not stateful, the implementation
+     might still have to keep states.  This is due to the implementation
+     chosen for the GNU C Library as it is described below.  Therefore
+     an 'iconv' call to reset the state should always be performed if
+     some protocol requires this for the output text.
+
+     The conversion stops for one of three reasons.  The first is that
+     all characters from the input buffer are converted.  This actually
+     can mean two things: either all bytes from the input buffer are
+     consumed or there are some bytes at the end of the buffer that
+     possibly can form a complete character but the input is incomplete.
+     The second reason for a stop is that the output buffer is full.
+     And the third reason is that the input contains invalid characters.
+
+     In all of these cases the buffer pointers after the last successful
+     conversion, for input and output buffer, are stored in INBUF and
+     OUTBUF, and the available room in each buffer is stored in
+     INBYTESLEFT and OUTBYTESLEFT.
+
+     Since the character sets selected in the 'iconv_open' call can be
+     almost arbitrary, there can be situations where the input buffer
+     contains valid characters, which have no identical representation
+     in the output character set.  The behavior in this situation is
+     undefined.  The _current_ behavior of the GNU C Library in this
+     situation is to return with an error immediately.  This certainly
+     is not the most desirable solution; therefore, future versions will
+     provide better ones, but they are not yet finished.
+
+     If all input from the input buffer is successfully converted and
+     stored in the output buffer, the function returns the number of
+     non-reversible conversions performed.  In all other cases the
+     return value is '(size_t) -1' and 'errno' is set appropriately.  In
+     such cases the value pointed to by INBYTESLEFT is nonzero.
+
+     'EILSEQ'
+          The conversion stopped because of an invalid byte sequence in
+          the input.  After the call, '*INBUF' points at the first byte
+          of the invalid byte sequence.
+
+     'E2BIG'
+          The conversion stopped because it ran out of space in the
+          output buffer.
+
+     'EINVAL'
+          The conversion stopped because of an incomplete byte sequence
+          at the end of the input buffer.
+
+     'EBADF'
+          The CD argument is invalid.
+
+     The 'iconv' function was introduced in the XPG2 standard and is
+     declared in the 'iconv.h' header.
+
+   The definition of the 'iconv' function is quite good overall.  It
+provides quite flexible functionality.  The only problems lie in the
+boundary cases, which are incomplete byte sequences at the end of the
+input buffer and invalid input.  A third problem, which is not really a
+design problem, is the way conversions are selected.  The standard does
+not say anything about the legitimate names, a minimal set of available
+conversions.  We will see how this negatively impacts other
+implementations, as demonstrated below.
+
+
+File: libc.info,  Node: iconv Examples,  Next: Other iconv Implementations,  Prev: Generic Conversion Interface,  Up: Generic Charset Conversion
+
+6.5.2 A complete 'iconv' example
+--------------------------------
+
+The example below features a solution for a common problem.  Given that
+one knows the internal encoding used by the system for 'wchar_t'
+strings, one often is in the position to read text from a file and store
+it in wide character buffers.  One can do this using 'mbsrtowcs', but
+then we run into the problems discussed above.
+
+     int
+     file2wcs (int fd, const char *charset, wchar_t *outbuf, size_t avail)
+     {
+       char inbuf[BUFSIZ];
+       size_t insize = 0;
+       char *wrptr = (char *) outbuf;
+       int result = 0;
+       iconv_t cd;
+
+       cd = iconv_open ("WCHAR_T", charset);
+       if (cd == (iconv_t) -1)
+         {
+           /* Something went wrong.  */
+           if (errno == EINVAL)
+             error (0, 0, "conversion from '%s' to wchar_t not available",
+                    charset);
+           else
+             perror ("iconv_open");
+
+           /* Terminate the output string.  */
+           *outbuf = L'\0';
+
+           return -1;
+         }
+
+       while (avail > 0)
+         {
+           size_t nread;
+           size_t nconv;
+           char *inptr = inbuf;
+
+           /* Read more input.  */
+           nread = read (fd, inbuf + insize, sizeof (inbuf) - insize);
+           if (nread == 0)
+             {
+               /* When we come here the file is completely read.
+                  This still could mean there are some unused
+                  characters in the 'inbuf'.  Put them back.  */
+               if (lseek (fd, -insize, SEEK_CUR) == -1)
+                 result = -1;
+
+               /* Now write out the byte sequence to get into the
+                  initial state if this is necessary.  */
+               iconv (cd, NULL, NULL, &wrptr, &avail);
+
+               break;
+             }
+           insize += nread;
+
+           /* Do the conversion.  */
+           nconv = iconv (cd, &inptr, &insize, &wrptr, &avail);
+           if (nconv == (size_t) -1)
+             {
+               /* Not everything went right.  It might only be
+                  an unfinished byte sequence at the end of the
+                  buffer.  Or it is a real problem.  */
+               if (errno == EINVAL)
+                 /* This is harmless.  Simply move the unused
+                    bytes to the beginning of the buffer so that
+                    they can be used in the next round.  */
+                 memmove (inbuf, inptr, insize);
+               else
+                 {
+                   /* It is a real problem.  Maybe we ran out of
+                      space in the output buffer or we have invalid
+                      input.  In any case back the file pointer to
+                      the position of the last processed byte.  */
+                   lseek (fd, -insize, SEEK_CUR);
+                   result = -1;
+                   break;
+                 }
+             }
+         }
+
+       /* Terminate the output string.  */
+       if (avail >= sizeof (wchar_t))
+         *((wchar_t *) wrptr) = L'\0';
+
+       if (iconv_close (cd) != 0)
+         perror ("iconv_close");
+
+       return (wchar_t *) wrptr - outbuf;
+     }
+
+   This example shows the most important aspects of using the 'iconv'
+functions.  It shows how successive calls to 'iconv' can be used to
+convert large amounts of text.  The user does not have to care about
+stateful encodings as the functions take care of everything.
+
+   An interesting point is the case where 'iconv' returns an error and
+'errno' is set to 'EINVAL'.  This is not really an error in the
+transformation.  It can happen whenever the input character set contains
+byte sequences of more than one byte for some character and texts are
+not processed in one piece.  In this case there is a chance that a
+multibyte sequence is cut.  The caller can then simply read the
+remainder of the takes and feed the offending bytes together with new
+character from the input to 'iconv' and continue the work.  The internal
+state kept in the descriptor is _not_ unspecified after such an event as
+is the case with the conversion functions from the ISO C standard.
+
+   The example also shows the problem of using wide character strings
+with 'iconv'.  As explained in the description of the 'iconv' function
+above, the function always takes a pointer to a 'char' array and the
+available space is measured in bytes.  In the example, the output buffer
+is a wide character buffer; therefore, we use a local variable WRPTR of
+type 'char *', which is used in the 'iconv' calls.
+
+   This looks rather innocent but can lead to problems on platforms that
+have tight restriction on alignment.  Therefore the caller of 'iconv'
+has to make sure that the pointers passed are suitable for access of
+characters from the appropriate character set.  Since, in the above
+case, the input parameter to the function is a 'wchar_t' pointer, this
+is the case (unless the user violates alignment when computing the
+parameter).  But in other situations, especially when writing generic
+functions where one does not know what type of character set one uses
+and, therefore, treats text as a sequence of bytes, it might become
+tricky.
+
+
+File: libc.info,  Node: Other iconv Implementations,  Next: glibc iconv Implementation,  Prev: iconv Examples,  Up: Generic Charset Conversion
+
+6.5.3 Some Details about other 'iconv' Implementations
+------------------------------------------------------
+
+This is not really the place to discuss the 'iconv' implementation of
+other systems but it is necessary to know a bit about them to write
+portable programs.  The above mentioned problems with the specification
+of the 'iconv' functions can lead to portability issues.
+
+   The first thing to notice is that, due to the large number of
+character sets in use, it is certainly not practical to encode the
+conversions directly in the C library.  Therefore, the conversion
+information must come from files outside the C library.  This is usually
+done in one or both of the following ways:
+
+   * The C library contains a set of generic conversion functions that
+     can read the needed conversion tables and other information from
+     data files.  These files get loaded when necessary.
+
+     This solution is problematic as it requires a great deal of effort
+     to apply to all character sets (potentially an infinite set).  The
+     differences in the structure of the different character sets is so
+     large that many different variants of the table-processing
+     functions must be developed.  In addition, the generic nature of
+     these functions make them slower than specifically implemented
+     functions.
+
+   * The C library only contains a framework that can dynamically load
+     object files and execute the conversion functions contained
+     therein.
+
+     This solution provides much more flexibility.  The C library itself
+     contains only very little code and therefore reduces the general
+     memory footprint.  Also, with a documented interface between the C
+     library and the loadable modules it is possible for third parties
+     to extend the set of available conversion modules.  A drawback of
+     this solution is that dynamic loading must be available.
+
+   Some implementations in commercial Unices implement a mixture of
+these possibilities; the majority implement only the second solution.
+Using loadable modules moves the code out of the library itself and
+keeps the door open for extensions and improvements, but this design is
+also limiting on some platforms since not many platforms support dynamic
+loading in statically linked programs.  On platforms without this
+capability it is therefore not possible to use this interface in
+statically linked programs.  The GNU C Library has, on ELF platforms, no
+problems with dynamic loading in these situations; therefore, this point
+is moot.  The danger is that one gets acquainted with this situation and
+forgets about the restrictions on other systems.
+
+   A second thing to know about other 'iconv' implementations is that
+the number of available conversions is often very limited.  Some
+implementations provide, in the standard release (not special
+international or developer releases), at most 100 to 200 conversion
+possibilities.  This does not mean 200 different character sets are
+supported; for example, conversions from one character set to a set of
+10 others might count as 10 conversions.  Together with the other
+direction this makes 20 conversion possibilities used up by one
+character set.  One can imagine the thin coverage these platform
+provide.  Some Unix vendors even provide only a handful of conversions,
+which renders them useless for almost all uses.
+
+   This directly leads to a third and probably the most problematic
+point.  The way the 'iconv' conversion functions are implemented on all
+known Unix systems and the availability of the conversion functions from
+character set A to B and the conversion from B to C does _not_ imply
+that the conversion from A to C is available.
+
+   This might not seem unreasonable and problematic at first, but it is
+a quite big problem as one will notice shortly after hitting it.  To
+show the problem we assume to write a program that has to convert from A
+to C.  A call like
+
+     cd = iconv_open ("C", "A");
+
+fails according to the assumption above.  But what does the program do
+now?  The conversion is necessary; therefore, simply giving up is not an
+option.
+
+   This is a nuisance.  The 'iconv' function should take care of this.
+But how should the program proceed from here on?  If it tries to convert
+to character set B, first the two 'iconv_open' calls
+
+     cd1 = iconv_open ("B", "A");
+
+and
+
+     cd2 = iconv_open ("C", "B");
+
+will succeed, but how to find B?
+
+   Unfortunately, the answer is: there is no general solution.  On some
+systems guessing might help.  On those systems most character sets can
+convert to and from UTF-8 encoded ISO 10646 or Unicode text.  Beside
+this only some very system-specific methods can help.  Since the
+conversion functions come from loadable modules and these modules must
+be stored somewhere in the filesystem, one _could_ try to find them and
+determine from the available file which conversions are available and
+whether there is an indirect route from A to C.
+
+   This example shows one of the design errors of 'iconv' mentioned
+above.  It should at least be possible to determine the list of
+available conversion programmatically so that if 'iconv_open' says there
+is no such conversion, one could make sure this also is true for
+indirect routes.
+
+
+File: libc.info,  Node: glibc iconv Implementation,  Prev: Other iconv Implementations,  Up: Generic Charset Conversion
+
+6.5.4 The 'iconv' Implementation in the GNU C Library
+-----------------------------------------------------
+
+After reading about the problems of 'iconv' implementations in the last
+section it is certainly good to note that the implementation in the GNU
+C Library has none of the problems mentioned above.  What follows is a
+step-by-step analysis of the points raised above.  The evaluation is
+based on the current state of the development (as of January 1999).  The
+development of the 'iconv' functions is not complete, but basic
+functionality has solidified.
+
+   The GNU C Library's 'iconv' implementation uses shared loadable
+modules to implement the conversions.  A very small number of
+conversions are built into the library itself but these are only rather
+trivial conversions.
+
+   All the benefits of loadable modules are available in the GNU C
+Library implementation.  This is especially appealing since the
+interface is well documented (see below), and it, therefore, is easy to
+write new conversion modules.  The drawback of using loadable objects is
+not a problem in the GNU C Library, at least on ELF systems.  Since the
+library is able to load shared objects even in statically linked
+binaries, static linking need not be forbidden in case one wants to use
+'iconv'.
+
+   The second mentioned problem is the number of supported conversions.
+Currently, the GNU C Library supports more than 150 character sets.  The
+way the implementation is designed the number of supported conversions
+is greater than 22350 (150 times 149).  If any conversion from or to a
+character set is missing, it can be added easily.
+
+   Particularly impressive as it may be, this high number is due to the
+fact that the GNU C Library implementation of 'iconv' does not have the
+third problem mentioned above (i.e., whenever there is a conversion from
+a character set A to B and from B to C it is always possible to convert
+from A to C directly).  If the 'iconv_open' returns an error and sets
+'errno' to 'EINVAL', there is no known way, directly or indirectly, to
+perform the wanted conversion.
+
+   Triangulation is achieved by providing for each character set a
+conversion from and to UCS-4 encoded ISO 10646.  Using ISO 10646 as an
+intermediate representation it is possible to "triangulate" (i.e.,
+convert with an intermediate representation).
+
+   There is no inherent requirement to provide a conversion to ISO 10646
+for a new character set, and it is also possible to provide other
+conversions where neither source nor destination character set is
+ISO 10646.  The existing set of conversions is simply meant to cover all
+conversions that might be of interest.
+
+   All currently available conversions use the triangulation method
+above, making conversion run unnecessarily slow.  If, for example,
+somebody often needs the conversion from ISO-2022-JP to EUC-JP, a
+quicker solution would involve direct conversion between the two
+character sets, skipping the input to ISO 10646 first.  The two
+character sets of interest are much more similar to each other than to
+ISO 10646.
+
+   In such a situation one easily can write a new conversion and provide
+it as a better alternative.  The GNU C Library 'iconv' implementation
+would automatically use the module implementing the conversion if it is
+specified to be more efficient.
+
+6.5.4.1 Format of 'gconv-modules' files
+.......................................
+
+All information about the available conversions comes from a file named
+'gconv-modules', which can be found in any of the directories along the
+'GCONV_PATH'.  The 'gconv-modules' files are line-oriented text files,
+where each of the lines has one of the following formats:
+
+   * If the first non-whitespace character is a '#' the line contains
+     only comments and is ignored.
+
+   * Lines starting with 'alias' define an alias name for a character
+     set.  Two more words are expected on the line.  The first word
+     defines the alias name, and the second defines the original name of
+     the character set.  The effect is that it is possible to use the
+     alias name in the FROMSET or TOSET parameters of 'iconv_open' and
+     achieve the same result as when using the real character set name.
+
+     This is quite important as a character set has often many different
+     names.  There is normally an official name but this need not
+     correspond to the most popular name.  Beside this many character
+     sets have special names that are somehow constructed.  For example,
+     all character sets specified by the ISO have an alias of the form
+     'ISO-IR-NNN' where NNN is the registration number.  This allows
+     programs that know about the registration number to construct
+     character set names and use them in 'iconv_open' calls.  More on
+     the available names and aliases follows below.
+
+   * Lines starting with 'module' introduce an available conversion
+     module.  These lines must contain three or four more words.
+
+     The first word specifies the source character set, the second word
+     the destination character set of conversion implemented in this
+     module, and the third word is the name of the loadable module.  The
+     filename is constructed by appending the usual shared object suffix
+     (normally '.so') and this file is then supposed to be found in the
+     same directory the 'gconv-modules' file is in.  The last word on
+     the line, which is optional, is a numeric value representing the
+     cost of the conversion.  If this word is missing, a cost of 1 is
+     assumed.  The numeric value itself does not matter that much; what
+     counts are the relative values of the sums of costs for all
+     possible conversion paths.  Below is a more precise description of
+     the use of the cost value.
+
+   Returning to the example above where one has written a module to
+directly convert from ISO-2022-JP to EUC-JP and back.  All that has to
+be done is to put the new module, let its name be ISO2022JP-EUCJP.so, in
+a directory and add a file 'gconv-modules' with the following content in
+the same directory:
+
+     module  ISO-2022-JP//   EUC-JP//        ISO2022JP-EUCJP    1
+     module  EUC-JP//        ISO-2022-JP//   ISO2022JP-EUCJP    1
+
+   To see why this is sufficient, it is necessary to understand how the
+conversion used by 'iconv' (and described in the descriptor) is
+selected.  The approach to this problem is quite simple.
+
+   At the first call of the 'iconv_open' function the program reads all
+available 'gconv-modules' files and builds up two tables: one containing
+all the known aliases and another that contains the information about
+the conversions and which shared object implements them.
+
+6.5.4.2 Finding the conversion path in 'iconv'
+..............................................
+
+The set of available conversions form a directed graph with weighted
+edges.  The weights on the edges are the costs specified in the
+'gconv-modules' files.  The 'iconv_open' function uses an algorithm
+suitable for search for the best path in such a graph and so constructs
+a list of conversions that must be performed in succession to get the
+transformation from the source to the destination character set.
+
+   Explaining why the above 'gconv-modules' files allows the 'iconv'
+implementation to resolve the specific ISO-2022-JP to EUC-JP conversion
+module instead of the conversion coming with the library itself is
+straightforward.  Since the latter conversion takes two steps (from
+ISO-2022-JP to ISO 10646 and then from ISO 10646 to EUC-JP), the cost is
+1+1 = 2.  The above 'gconv-modules' file, however, specifies that the
+new conversion modules can perform this conversion with only the cost of
+1.
+
+   A mysterious item about the 'gconv-modules' file above (and also the
+file coming with the GNU C Library) are the names of the character sets
+specified in the 'module' lines.  Why do almost all the names end in
+'//'?  And this is not all: the names can actually be regular
+expressions.  At this point in time this mystery should not be revealed,
+unless you have the relevant spell-casting materials: ashes from an
+original DOS 6.2 boot disk burnt in effigy, a crucifix blessed by St.
+Emacs, assorted herbal roots from Central America, sand from Cebu, etc.
+Sorry!  *The part of the implementation where this is used is not yet
+finished.  For now please simply follow the existing examples.  It'll
+become clearer once it is.  -drepper*
+
+   A last remark about the 'gconv-modules' is about the names not ending
+with '//'.  A character set named 'INTERNAL' is often mentioned.  From
+the discussion above and the chosen name it should have become clear
+that this is the name for the representation used in the intermediate
+step of the triangulation.  We have said that this is UCS-4 but actually
+that is not quite right.  The UCS-4 specification also includes the
+specification of the byte ordering used.  Since a UCS-4 value consists
+of four bytes, a stored value is affected by byte ordering.  The
+internal representation is _not_ the same as UCS-4 in case the byte
+ordering of the processor (or at least the running process) is not the
+same as the one required for UCS-4.  This is done for performance
+reasons as one does not want to perform unnecessary byte-swapping
+operations if one is not interested in actually seeing the result in
+UCS-4.  To avoid trouble with endianness, the internal representation
+consistently is named 'INTERNAL' even on big-endian systems where the
+representations are identical.
+
+6.5.4.3 'iconv' module data structures
+......................................
+
+So far this section has described how modules are located and considered
+to be used.  What remains to be described is the interface of the
+modules so that one can write new ones.  This section describes the
+interface as it is in use in January 1999.  The interface will change a
+bit in the future but, with luck, only in an upwardly compatible way.
+
+   The definitions necessary to write new modules are publicly available
+in the non-standard header 'gconv.h'.  The following text, therefore,
+describes the definitions from this header file.  First, however, it is
+necessary to get an overview.
+
+   From the perspective of the user of 'iconv' the interface is quite
+simple: the 'iconv_open' function returns a handle that can be used in
+calls to 'iconv', and finally the handle is freed with a call to
+'iconv_close'.  The problem is that the handle has to be able to
+represent the possibly long sequences of conversion steps and also the
+state of each conversion since the handle is all that is passed to the
+'iconv' function.  Therefore, the data structures are really the
+elements necessary to understanding the implementation.
+
+   We need two different kinds of data structures.  The first describes
+the conversion and the second describes the state etc.  There are really
+two type definitions like this in 'gconv.h'.
+
+ -- Data type: struct __gconv_step
+     This data structure describes one conversion a module can perform.
+     For each function in a loaded module with conversion functions
+     there is exactly one object of this type.  This object is shared by
+     all users of the conversion (i.e., this object does not contain any
+     information corresponding to an actual conversion; it only
+     describes the conversion itself).
+
+     'struct __gconv_loaded_object *__shlib_handle'
+     'const char *__modname'
+     'int __counter'
+          All these elements of the structure are used internally in the
+          C library to coordinate loading and unloading the shared.  One
+          must not expect any of the other elements to be available or
+          initialized.
+
+     'const char *__from_name'
+     'const char *__to_name'
+          '__from_name' and '__to_name' contain the names of the source
+          and destination character sets.  They can be used to identify
+          the actual conversion to be carried out since one module might
+          implement conversions for more than one character set and/or
+          direction.
+
+     'gconv_fct __fct'
+     'gconv_init_fct __init_fct'
+     'gconv_end_fct __end_fct'
+          These elements contain pointers to the functions in the
+          loadable module.  The interface will be explained below.
+
+     'int __min_needed_from'
+     'int __max_needed_from'
+     'int __min_needed_to'
+     'int __max_needed_to;'
+          These values have to be supplied in the init function of the
+          module.  The '__min_needed_from' value specifies how many
+          bytes a character of the source character set at least needs.
+          The '__max_needed_from' specifies the maximum value that also
+          includes possible shift sequences.
+
+          The '__min_needed_to' and '__max_needed_to' values serve the
+          same purpose as '__min_needed_from' and '__max_needed_from'
+          but this time for the destination character set.
+
+          It is crucial that these values be accurate since otherwise
+          the conversion functions will have problems or not work at
+          all.
+
+     'int __stateful'
+          This element must also be initialized by the init function.
+          'int __stateful' is nonzero if the source character set is
+          stateful.  Otherwise it is zero.
+
+     'void *__data'
+          This element can be used freely by the conversion functions in
+          the module.  'void *__data' can be used to communicate extra
+          information from one call to another.  'void *__data' need not
+          be initialized if not needed at all.  If 'void *__data'
+          element is assigned a pointer to dynamically allocated memory
+          (presumably in the init function) it has to be made sure that
+          the end function deallocates the memory.  Otherwise the
+          application will leak memory.
+
+          It is important to be aware that this data structure is shared
+          by all users of this specification conversion and therefore
+          the '__data' element must not contain data specific to one
+          specific use of the conversion function.
+
+ -- Data type: struct __gconv_step_data
+     This is the data structure that contains the information specific
+     to each use of the conversion functions.
+
+     'char *__outbuf'
+     'char *__outbufend'
+          These elements specify the output buffer for the conversion
+          step.  The '__outbuf' element points to the beginning of the
+          buffer, and '__outbufend' points to the byte following the
+          last byte in the buffer.  The conversion function must not
+          assume anything about the size of the buffer but it can be
+          safely assumed the there is room for at least one complete
+          character in the output buffer.
+
+          Once the conversion is finished, if the conversion is the last
+          step, the '__outbuf' element must be modified to point after
+          the last byte written into the buffer to signal how much
+          output is available.  If this conversion step is not the last
+          one, the element must not be modified.  The '__outbufend'
+          element must not be modified.
+
+     'int __is_last'
+          This element is nonzero if this conversion step is the last
+          one.  This information is necessary for the recursion.  See
+          the description of the conversion function internals below.
+          This element must never be modified.
+
+     'int __invocation_counter'
+          The conversion function can use this element to see how many
+          calls of the conversion function already happened.  Some
+          character sets require a certain prolog when generating
+          output, and by comparing this value with zero, one can find
+          out whether it is the first call and whether, therefore, the
+          prolog should be emitted.  This element must never be
+          modified.
+
+     'int __internal_use'
+          This element is another one rarely used but needed in certain
+          situations.  It is assigned a nonzero value in case the
+          conversion functions are used to implement 'mbsrtowcs' et.al.
+          (i.e., the function is not used directly through the 'iconv'
+          interface).
+
+          This sometimes makes a difference as it is expected that the
+          'iconv' functions are used to translate entire texts while the
+          'mbsrtowcs' functions are normally used only to convert single
+          strings and might be used multiple times to convert entire
+          texts.
+
+          But in this situation we would have problem complying with
+          some rules of the character set specification.  Some character
+          sets require a prolog, which must appear exactly once for an
+          entire text.  If a number of 'mbsrtowcs' calls are used to
+          convert the text, only the first call must add the prolog.
+          However, because there is no communication between the
+          different calls of 'mbsrtowcs', the conversion functions have
+          no possibility to find this out.  The situation is different
+          for sequences of 'iconv' calls since the handle allows access
+          to the needed information.
+
+          The 'int __internal_use' element is mostly used together with
+          '__invocation_counter' as follows:
+
+               if (!data->__internal_use
+                    && data->__invocation_counter == 0)
+                 /* Emit prolog.  */
+                 ...
+
+          This element must never be modified.
+
+     'mbstate_t *__statep'
+          The '__statep' element points to an object of type 'mbstate_t'
+          (*note Keeping the state::).  The conversion of a stateful
+          character set must use the object pointed to by '__statep' to
+          store information about the conversion state.  The '__statep'
+          element itself must never be modified.
+
+     'mbstate_t __state'
+          This element must _never_ be used directly.  It is only part
+          of this structure to have the needed space allocated.
+
+6.5.4.4 'iconv' module interfaces
+.................................
+
+With the knowledge about the data structures we now can describe the
+conversion function itself.  To understand the interface a bit of
+knowledge is necessary about the functionality in the C library that
+loads the objects with the conversions.
+
+   It is often the case that one conversion is used more than once
+(i.e., there are several 'iconv_open' calls for the same set of
+character sets during one program run).  The 'mbsrtowcs' et.al.
+functions in the GNU C Library also use the 'iconv' functionality, which
+increases the number of uses of the same functions even more.
+
+   Because of this multiple use of conversions, the modules do not get
+loaded exclusively for one conversion.  Instead a module once loaded can
+be used by an arbitrary number of 'iconv' or 'mbsrtowcs' calls at the
+same time.  The splitting of the information between conversion-
+function-specific information and conversion data makes this possible.
+The last section showed the two data structures used to do this.
+
+   This is of course also reflected in the interface and semantics of
+the functions that the modules must provide.  There are three functions
+that must have the following names:
+
+'gconv_init'
+     The 'gconv_init' function initializes the conversion function
+     specific data structure.  This very same object is shared by all
+     conversions that use this conversion and, therefore, no state
+     information about the conversion itself must be stored in here.  If
+     a module implements more than one conversion, the 'gconv_init'
+     function will be called multiple times.
+
+'gconv_end'
+     The 'gconv_end' function is responsible for freeing all resources
+     allocated by the 'gconv_init' function.  If there is nothing to do,
+     this function can be missing.  Special care must be taken if the
+     module implements more than one conversion and the 'gconv_init'
+     function does not allocate the same resources for all conversions.
+
+'gconv'
+     This is the actual conversion function.  It is called to convert
+     one block of text.  It gets passed the conversion step information
+     initialized by 'gconv_init' and the conversion data, specific to
+     this use of the conversion functions.
+
+   There are three data types defined for the three module interface
+functions and these define the interface.
+
+ -- Data type: int (*__gconv_init_fct) (struct __gconv_step *)
+     This specifies the interface of the initialization function of the
+     module.  It is called exactly once for each conversion the module
+     implements.
+
+     As explained in the description of the 'struct __gconv_step' data
+     structure above the initialization function has to initialize parts
+     of it.
+
+     '__min_needed_from'
+     '__max_needed_from'
+     '__min_needed_to'
+     '__max_needed_to'
+          These elements must be initialized to the exact numbers of the
+          minimum and maximum number of bytes used by one character in
+          the source and destination character sets, respectively.  If
+          the characters all have the same size, the minimum and maximum
+          values are the same.
+
+     '__stateful'
+          This element must be initialized to a nonzero value if the
+          source character set is stateful.  Otherwise it must be zero.
+
+     If the initialization function needs to communicate some
+     information to the conversion function, this communication can
+     happen using the '__data' element of the '__gconv_step' structure.
+     But since this data is shared by all the conversions, it must not
+     be modified by the conversion function.  The example below shows
+     how this can be used.
+
+          #define MIN_NEEDED_FROM         1
+          #define MAX_NEEDED_FROM         4
+          #define MIN_NEEDED_TO           4
+          #define MAX_NEEDED_TO           4
+
+          int
+          gconv_init (struct __gconv_step *step)
+          {
+            /* Determine which direction.  */
+            struct iso2022jp_data *new_data;
+            enum direction dir = illegal_dir;
+            enum variant var = illegal_var;
+            int result;
+
+            if (__strcasecmp (step->__from_name, "ISO-2022-JP//") == 0)
+              {
+                dir = from_iso2022jp;
+                var = iso2022jp;
+              }
+            else if (__strcasecmp (step->__to_name, "ISO-2022-JP//") == 0)
+              {
+                dir = to_iso2022jp;
+                var = iso2022jp;
+              }
+            else if (__strcasecmp (step->__from_name, "ISO-2022-JP-2//") == 0)
+              {
+                dir = from_iso2022jp;
+                var = iso2022jp2;
+              }
+            else if (__strcasecmp (step->__to_name, "ISO-2022-JP-2//") == 0)
+              {
+                dir = to_iso2022jp;
+                var = iso2022jp2;
+              }
+
+            result = __GCONV_NOCONV;
+            if (dir != illegal_dir)
+              {
+                new_data = (struct iso2022jp_data *)
+                  malloc (sizeof (struct iso2022jp_data));
+
+                result = __GCONV_NOMEM;
+                if (new_data != NULL)
+                  {
+                    new_data->dir = dir;
+                    new_data->var = var;
+                    step->__data = new_data;
+
+                    if (dir == from_iso2022jp)
+                      {
+                        step->__min_needed_from = MIN_NEEDED_FROM;
+                        step->__max_needed_from = MAX_NEEDED_FROM;
+                        step->__min_needed_to = MIN_NEEDED_TO;
+                        step->__max_needed_to = MAX_NEEDED_TO;
+                      }
+                    else
+                      {
+                        step->__min_needed_from = MIN_NEEDED_TO;
+                        step->__max_needed_from = MAX_NEEDED_TO;
+                        step->__min_needed_to = MIN_NEEDED_FROM;
+                        step->__max_needed_to = MAX_NEEDED_FROM + 2;
+                      }
+
+                    /* Yes, this is a stateful encoding.  */
+                    step->__stateful = 1;
+
+                    result = __GCONV_OK;
+                  }
+              }
+
+            return result;
+          }
+
+     The function first checks which conversion is wanted.  The module
+     from which this function is taken implements four different
+     conversions; which one is selected can be determined by comparing
+     the names.  The comparison should always be done without paying
+     attention to the case.
+
+     Next, a data structure, which contains the necessary information
+     about which conversion is selected, is allocated.  The data
+     structure 'struct iso2022jp_data' is locally defined since, outside
+     the module, this data is not used at all.  Please note that if all
+     four conversions this modules supports are requested there are four
+     data blocks.
+
+     One interesting thing is the initialization of the '__min_' and
+     '__max_' elements of the step data object.  A single ISO-2022-JP
+     character can consist of one to four bytes.  Therefore the
+     'MIN_NEEDED_FROM' and 'MAX_NEEDED_FROM' macros are defined this
+     way.  The output is always the 'INTERNAL' character set (aka UCS-4)
+     and therefore each character consists of exactly four bytes.  For
+     the conversion from 'INTERNAL' to ISO-2022-JP we have to take into
+     account that escape sequences might be necessary to switch the
+     character sets.  Therefore the '__max_needed_to' element for this
+     direction gets assigned 'MAX_NEEDED_FROM + 2'.  This takes into
+     account the two bytes needed for the escape sequences to single the
+     switching.  The asymmetry in the maximum values for the two
+     directions can be explained easily: when reading ISO-2022-JP text,
+     escape sequences can be handled alone (i.e., it is not necessary to
+     process a real character since the effect of the escape sequence
+     can be recorded in the state information).  The situation is
+     different for the other direction.  Since it is in general not
+     known which character comes next, one cannot emit escape sequences
+     to change the state in advance.  This means the escape sequences
+     that have to be emitted together with the next character.
+     Therefore one needs more room than only for the character itself.
+
+     The possible return values of the initialization function are:
+
+     '__GCONV_OK'
+          The initialization succeeded
+     '__GCONV_NOCONV'
+          The requested conversion is not supported in the module.  This
+          can happen if the 'gconv-modules' file has errors.
+     '__GCONV_NOMEM'
+          Memory required to store additional information could not be
+          allocated.
+
+   The function called before the module is unloaded is significantly
+easier.  It often has nothing at all to do; in which case it can be left
+out completely.
+
+ -- Data type: void (*__gconv_end_fct) (struct gconv_step *)
+     The task of this function is to free all resources allocated in the
+     initialization function.  Therefore only the '__data' element of
+     the object pointed to by the argument is of interest.  Continuing
+     the example from the initialization function, the finalization
+     function looks like this:
+
+          void
+          gconv_end (struct __gconv_step *data)
+          {
+            free (data->__data);
+          }
+
+   The most important function is the conversion function itself, which
+can get quite complicated for complex character sets.  But since this is
+not of interest here, we will only describe a possible skeleton for the
+conversion function.
+
+ -- Data type: int (*__gconv_fct) (struct __gconv_step *, struct
+          __gconv_step_data *, const char **, const char *, size_t *,
+          int)
+     The conversion function can be called for two basic reason: to
+     convert text or to reset the state.  From the description of the
+     'iconv' function it can be seen why the flushing mode is necessary.
+     What mode is selected is determined by the sixth argument, an
+     integer.  This argument being nonzero means that flushing is
+     selected.
+
+     Common to both modes is where the output buffer can be found.  The
+     information about this buffer is stored in the conversion step
+     data.  A pointer to this information is passed as the second
+     argument to this function.  The description of the 'struct
+     __gconv_step_data' structure has more information on the conversion
+     step data.
+
+     What has to be done for flushing depends on the source character
+     set.  If the source character set is not stateful, nothing has to
+     be done.  Otherwise the function has to emit a byte sequence to
+     bring the state object into the initial state.  Once this all
+     happened the other conversion modules in the chain of conversions
+     have to get the same chance.  Whether another step follows can be
+     determined from the '__is_last' element of the step data structure
+     to which the first parameter points.
+
+     The more interesting mode is when actual text has to be converted.
+     The first step in this case is to convert as much text as possible
+     from the input buffer and store the result in the output buffer.
+     The start of the input buffer is determined by the third argument,
+     which is a pointer to a pointer variable referencing the beginning
+     of the buffer.  The fourth argument is a pointer to the byte right
+     after the last byte in the buffer.
+
+     The conversion has to be performed according to the current state
+     if the character set is stateful.  The state is stored in an object
+     pointed to by the '__statep' element of the step data (second
+     argument).  Once either the input buffer is empty or the output
+     buffer is full the conversion stops.  At this point, the pointer
+     variable referenced by the third parameter must point to the byte
+     following the last processed byte (i.e., if all of the input is
+     consumed, this pointer and the fourth parameter have the same
+     value).
+
+     What now happens depends on whether this step is the last one.  If
+     it is the last step, the only thing that has to be done is to
+     update the '__outbuf' element of the step data structure to point
+     after the last written byte.  This update gives the caller the
+     information on how much text is available in the output buffer.  In
+     addition, the variable pointed to by the fifth parameter, which is
+     of type 'size_t', must be incremented by the number of characters
+     (_not bytes_) that were converted in a non-reversible way.  Then,
+     the function can return.
+
+     In case the step is not the last one, the later conversion
+     functions have to get a chance to do their work.  Therefore, the
+     appropriate conversion function has to be called.  The information
+     about the functions is stored in the conversion data structures,
+     passed as the first parameter.  This information and the step data
+     are stored in arrays, so the next element in both cases can be
+     found by simple pointer arithmetic:
+
+          int
+          gconv (struct __gconv_step *step, struct __gconv_step_data *data,
+                 const char **inbuf, const char *inbufend, size_t *written,
+                 int do_flush)
+          {
+            struct __gconv_step *next_step = step + 1;
+            struct __gconv_step_data *next_data = data + 1;
+            ...
+
+     The 'next_step' pointer references the next step information and
+     'next_data' the next data record.  The call of the next function
+     therefore will look similar to this:
+
+            next_step->__fct (next_step, next_data, &outerr, outbuf,
+                              written, 0)
+
+     But this is not yet all.  Once the function call returns the
+     conversion function might have some more to do.  If the return
+     value of the function is '__GCONV_EMPTY_INPUT', more room is
+     available in the output buffer.  Unless the input buffer is empty
+     the conversion, functions start all over again and process the rest
+     of the input buffer.  If the return value is not
+     '__GCONV_EMPTY_INPUT', something went wrong and we have to recover
+     from this.
+
+     A requirement for the conversion function is that the input buffer
+     pointer (the third argument) always point to the last character
+     that was put in converted form into the output buffer.  This is
+     trivially true after the conversion performed in the current step,
+     but if the conversion functions deeper downstream stop prematurely,
+     not all characters from the output buffer are consumed and,
+     therefore, the input buffer pointers must be backed off to the
+     right position.
+
+     Correcting the input buffers is easy to do if the input and output
+     character sets have a fixed width for all characters.  In this
+     situation we can compute how many characters are left in the output
+     buffer and, therefore, can correct the input buffer pointer
+     appropriately with a similar computation.  Things are getting
+     tricky if either character set has characters represented with
+     variable length byte sequences, and it gets even more complicated
+     if the conversion has to take care of the state.  In these cases
+     the conversion has to be performed once again, from the known state
+     before the initial conversion (i.e., if necessary the state of the
+     conversion has to be reset and the conversion loop has to be
+     executed again).  The difference now is that it is known how much
+     input must be created, and the conversion can stop before
+     converting the first unused character.  Once this is done the input
+     buffer pointers must be updated again and the function can return.
+
+     One final thing should be mentioned.  If it is necessary for the
+     conversion to know whether it is the first invocation (in case a
+     prolog has to be emitted), the conversion function should increment
+     the '__invocation_counter' element of the step data structure just
+     before returning to the caller.  See the description of the 'struct
+     __gconv_step_data' structure above for more information on how this
+     can be used.
+
+     The return value must be one of the following values:
+
+     '__GCONV_EMPTY_INPUT'
+          All input was consumed and there is room left in the output
+          buffer.
+     '__GCONV_FULL_OUTPUT'
+          No more room in the output buffer.  In case this is not the
+          last step this value is propagated down from the call of the
+          next conversion function in the chain.
+     '__GCONV_INCOMPLETE_INPUT'
+          The input buffer is not entirely empty since it contains an
+          incomplete character sequence.
+
+     The following example provides a framework for a conversion
+     function.  In case a new conversion has to be written the holes in
+     this implementation have to be filled and that is it.
+
+          int
+          gconv (struct __gconv_step *step, struct __gconv_step_data *data,
+                 const char **inbuf, const char *inbufend, size_t *written,
+                 int do_flush)
+          {
+            struct __gconv_step *next_step = step + 1;
+            struct __gconv_step_data *next_data = data + 1;
+            gconv_fct fct = next_step->__fct;
+            int status;
+
+            /* If the function is called with no input this means we have
+               to reset to the initial state.  The possibly partly
+               converted input is dropped.  */
+            if (do_flush)
+              {
+                status = __GCONV_OK;
+
+                /* Possible emit a byte sequence which put the state object
+                   into the initial state.  */
+
+                /* Call the steps down the chain if there are any but only
+                   if we successfully emitted the escape sequence.  */
+                if (status == __GCONV_OK && ! data->__is_last)
+                  status = fct (next_step, next_data, NULL, NULL,
+                                written, 1);
+              }
+            else
+              {
+                /* We preserve the initial values of the pointer variables.  */
+                const char *inptr = *inbuf;
+                char *outbuf = data->__outbuf;
+                char *outend = data->__outbufend;
+                char *outptr;
+
+                do
+                  {
+                    /* Remember the start value for this round.  */
+                    inptr = *inbuf;
+                    /* The outbuf buffer is empty.  */
+                    outptr = outbuf;
+
+                    /* For stateful encodings the state must be safe here.  */
+
+                    /* Run the conversion loop.  'status' is set
+                       appropriately afterwards.  */
+
+                    /* If this is the last step, leave the loop. There is
+                       nothing we can do.  */
+                    if (data->__is_last)
+                      {
+                        /* Store information about how many bytes are
+                           available.  */
+                        data->__outbuf = outbuf;
+
+                       /* If any non-reversible conversions were performed,
+                          add the number to '*written'.  */
+
+                       break;
+                     }
+
+                    /* Write out all output that was produced.  */
+                    if (outbuf > outptr)
+                      {
+                        const char *outerr = data->__outbuf;
+                        int result;
+
+                        result = fct (next_step, next_data, &outerr,
+                                      outbuf, written, 0);
+
+                        if (result != __GCONV_EMPTY_INPUT)
+                          {
+                            if (outerr != outbuf)
+                              {
+                                /* Reset the input buffer pointer.  We
+                                   document here the complex case.  */
+                                size_t nstatus;
+
+                                /* Reload the pointers.  */
+                                *inbuf = inptr;
+                                outbuf = outptr;
+
+                                /* Possibly reset the state.  */
+
+                                /* Redo the conversion, but this time
+                                   the end of the output buffer is at
+                                   'outerr'.  */
+                              }
+
+                            /* Change the status.  */
+                            status = result;
+                          }
+                        else
+                          /* All the output is consumed, we can make
+                              another run if everything was ok.  */
+                          if (status == __GCONV_FULL_OUTPUT)
+                            status = __GCONV_OK;
+                     }
+                  }
+                while (status == __GCONV_OK);
+
+                /* We finished one use of this step.  */
+                ++data->__invocation_counter;
+              }
+
+            return status;
+          }
+
+   This information should be sufficient to write new modules.  Anybody
+doing so should also take a look at the available source code in the GNU
+C Library sources.  It contains many examples of working and optimized
+modules.
+
+
 File: libc.info,  Node: Locales,  Next: Message Translation,  Prev: Character Set Handling,  Up: Top
 
 7 Locales and Internationalization
@@ -1905,6 +3384,10 @@ general use or for a specific category.
 'locale.h'.
 
  -- Function: char * setlocale (int CATEGORY, const char *LOCALE)
+     Preliminary: | MT-Unsafe const:locale env | AS-Unsafe init lock
+     heap corrupt | AC-Unsafe init corrupt lock mem fd | *Note POSIX
+     Safety Concepts::.
+
      The function 'setlocale' sets the current locale for category
      CATEGORY to LOCALE.  A list of all the locales the system provides
      can be created by running
@@ -2089,6 +3572,9 @@ formats monetary amounts according to the selected locale using this
 information.
 
  -- Function: struct lconv * localeconv (void)
+     Preliminary: | MT-Unsafe race:localeconv locale | AS-Unsafe |
+     AC-Safe | *Note POSIX Safety Concepts::.
+
      The 'localeconv' function returns a pointer to a structure whose
      components contain information about how numeric and monetary
      values should be formatted in the current locale.
@@ -2345,6 +3831,9 @@ the locale (as later specified in the POSIX.1 standard) requires more
 ways to access it.  Therefore the 'nl_langinfo' function was introduced.
 
  -- Function: char * nl_langinfo (nl_item ITEM)
+     Preliminary: | MT-Safe locale | AS-Safe | AC-Safe | *Note POSIX
+     Safety Concepts::.
+
      The 'nl_langinfo' function can be used to access individual
      elements of the locale categories.  Unlike the 'localeconv'
      function, which returns all the information, 'nl_langinfo' lets the
@@ -2643,6 +4132,9 @@ according to these rules.
 
  -- Function: ssize_t strfmon (char *S, size_t MAXSIZE, const char
           *FORMAT, ...)
+     Preliminary: | MT-Safe locale | AS-Unsafe heap | AC-Unsafe mem |
+     *Note POSIX Safety Concepts::.
+
      The 'strfmon' function is similar to the 'strftime' function in
      that it takes a buffer, its size, a format string, and values to
      write into the buffer as text in a form specified by the format
@@ -2832,6 +4324,9 @@ English.
 to the corresponding locale definitions.
 
  -- Function: int rpmatch (const char *RESPONSE)
+     Preliminary: | MT-Safe locale | AS-Unsafe corrupt heap lock dlopen
+     | AC-Unsafe corrupt lock mem fd | *Note POSIX Safety Concepts::.
+
      The function 'rpmatch' checks the string in RESPONSE whether or not
      it is a correct yes-or-no answer and if yes, which one.  The check
      uses the 'YESEXPR' and 'NOEXPR' data in the 'LC_MESSAGES' category
@@ -2876,7 +4371,7 @@ This function would normally be used like this:
        /* Free what 'getline' allocated.  */
        free (line);
 
-   Note that the loop continues until an read error is detected or until
+   Note that the loop continues until a read error is detected or until
 a definitive (positive or negative) answer is read.
 
 
@@ -2964,7 +4459,10 @@ File: libc.info,  Node: The catgets Functions,  Next: The message catalog files,
 -----------------------------------
 
  -- Function: nl_catd catopen (const char *CAT_NAME, int FLAG)
-     The 'catgets' function tries to locate the message data file names
+     Preliminary: | MT-Safe env | AS-Unsafe heap | AC-Unsafe mem | *Note
+     POSIX Safety Concepts::.
+
+     The 'catopen' function tries to locate the message data file names
      CAT_NAME and loads it when found.  The return value is of an opaque
      type and can be used in calls to the other functions to refer to
      this loaded catalog.
@@ -3105,6 +4603,9 @@ variables.
 
  -- Function: char * catgets (nl_catd CATALOG_DESC, int SET, int
           MESSAGE, const char *STRING)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The function 'catgets' has to be used to access the massage catalog
      previously opened using the 'catopen' function.  The CATALOG_DESC
      parameter must be a value previously returned by 'catopen'.
@@ -3138,6 +4639,9 @@ We will see some how these problems can be relaxed a bit (*note Common
 Usage::).
 
  -- Function: int catclose (nl_catd CATALOG_DESC)
+     Preliminary: | MT-Safe | AS-Unsafe heap | AC-Unsafe corrupt mem |
+     *Note POSIX Safety Concepts::.
+
      The 'catclose' function can be used to free the resources
      associated with a message catalog which previously was opened by a
      call to 'catopen'.  If the resources can be successfully freed the
@@ -3620,15 +5124,18 @@ part of the C library they can be found in a separate library named
 'libintl.a' (or accordingly different for shared libraries).
 
  -- Function: char * gettext (const char *MSGID)
+     Preliminary: | MT-Safe env | AS-Unsafe corrupt heap lock dlopen |
+     AC-Unsafe corrupt lock fd mem | *Note POSIX Safety Concepts::.
+
      The 'gettext' function searches the currently selected message
      catalogs for a string which is equal to MSGID.  If there is such a
      string available it is returned.  Otherwise the argument string
      MSGID is returned.
 
-     Please note that all though the return value is 'char *' the
-     returned string must not be changed.  This broken type results from
-     the history of the function and does not reflect the way the
-     function should be used.
+     Please note that although the return value is 'char *' the returned
+     string must not be changed.  This broken type results from the
+     history of the function and does not reflect the way the function
+     should be used.
 
      Please note that above we wrote "message catalogs" (plural).  This
      is a specialty of the GNU implementation of these functions and we
@@ -3664,6 +5171,9 @@ information.
 
  -- Function: char * dgettext (const char *DOMAINNAME, const char
           *MSGID)
+     Preliminary: | MT-Safe env | AS-Unsafe corrupt heap lock dlopen |
+     AC-Unsafe corrupt lock fd mem | *Note POSIX Safety Concepts::.
+
      The 'dgettext' functions acts just like the 'gettext' function.  It
      only takes an additional first argument DOMAINNAME which guides the
      selection of the message catalogs which are searched for the
@@ -3676,6 +5186,9 @@ information.
 
  -- Function: char * dcgettext (const char *DOMAINNAME, const char
           *MSGID, int CATEGORY)
+     Preliminary: | MT-Safe env | AS-Unsafe corrupt heap lock dlopen |
+     AC-Unsafe corrupt lock fd mem | *Note POSIX Safety Concepts::.
+
      The 'dcgettext' adds another argument to those which 'dgettext'
      takes.  This argument CATEGORY specifies the last piece of
      information needed to localize the message catalog.  I.e., the
@@ -3769,7 +5282,7 @@ But there are some problems unresolved:
      always the second best choice to fall back on the language of the
      developer and simply not translate any message.  Instead a user
      might be better able to read the messages in another language and
-     so the user of the program should be able to define an precedence
+     so the user of the program should be able to define a precedence
      order of languages.
 
    We can divide the configuration actions in two parts: the one is
@@ -3787,6 +5300,9 @@ named 'foo'.  The important point is that at any time exactly one domain
 is active.  This is controlled with the following function.
 
  -- Function: char * textdomain (const char *DOMAINNAME)
+     Preliminary: | MT-Safe | AS-Unsafe lock heap | AC-Unsafe lock mem |
+     *Note POSIX Safety Concepts::.
+
      The 'textdomain' function sets the default domain, which is used in
      all future 'gettext' calls, to DOMAINNAME.  Please note that
      'dgettext' and 'dcgettext' calls are not influenced if the
@@ -3816,6 +5332,9 @@ is active.  This is controlled with the following function.
 
  -- Function: char * bindtextdomain (const char *DOMAINNAME, const char
           *DIRNAME)
+     Preliminary: | MT-Safe | AS-Unsafe heap | AC-Unsafe mem | *Note
+     POSIX Safety Concepts::.
+
      The 'bindtextdomain' function can be used to specify the directory
      which contains the message catalogs for domain DOMAINNAME for the
      different languages.  To be correct, this is the directory where
@@ -3904,7 +5423,7 @@ only usable for certain, hardcoded language environments.  Instead the
 extended 'gettext' interface should be used.
 
    These extra functions are taking instead of the one key string two
-strings and an numerical argument.  The idea behind this is that using
+strings and a numerical argument.  The idea behind this is that using
 the numerical argument and the first string as a key, the implementation
 can select using rules specified by the translator the right plural
 form.  The two string arguments then will be used to provide a return
@@ -3923,6 +5442,9 @@ purpose.
 
  -- Function: char * ngettext (const char *MSGID1, const char *MSGID2,
           unsigned long int N)
+     Preliminary: | MT-Safe env | AS-Unsafe corrupt heap lock dlopen |
+     AC-Unsafe corrupt lock fd mem | *Note POSIX Safety Concepts::.
+
      The 'ngettext' function is similar to the 'gettext' function as it
      finds the message catalogs in the same way.  But it takes two extra
      arguments.  The MSGID1 parameter must contain the singular form of
@@ -3942,6 +5464,9 @@ purpose.
 
  -- Function: char * dngettext (const char *DOMAIN, const char *MSGID1,
           const char *MSGID2, unsigned long int N)
+     Preliminary: | MT-Safe env | AS-Unsafe corrupt heap lock dlopen |
+     AC-Unsafe corrupt lock fd mem | *Note POSIX Safety Concepts::.
+
      The 'dngettext' is similar to the 'dgettext' function in the way
      the message catalog is selected.  The difference is that it takes
      two extra parameter to provide the correct plural form.  These two
@@ -3949,6 +5474,9 @@ purpose.
 
  -- Function: char * dcngettext (const char *DOMAIN, const char *MSGID1,
           const char *MSGID2, unsigned long int N, int CATEGORY)
+     Preliminary: | MT-Safe env | AS-Unsafe corrupt heap lock dlopen |
+     AC-Unsafe corrupt lock fd mem | *Note POSIX Safety Concepts::.
+
      The 'dcngettext' is similar to the 'dcgettext' function in the way
      the message catalog is selected.  The difference is that it takes
      two extra parameter to provide the correct plural form.  These two
@@ -4155,6 +5683,9 @@ strings.
 
  -- Function: char * bind_textdomain_codeset (const char *DOMAINNAME,
           const char *CODESET)
+     Preliminary: | MT-Safe | AS-Unsafe heap | AC-Unsafe mem | *Note
+     POSIX Safety Concepts::.
+
      The 'bind_textdomain_codeset' function can be used to specify the
      output character set for message catalogs for domain DOMAINNAME.
      The CODESET argument must be a valid codeset name which can be used
@@ -4581,6 +6112,9 @@ two functions can be found in 'search.h'.
 
  -- Function: void * lfind (const void *KEY, const void *BASE, size_t
           *NMEMB, size_t SIZE, comparison_fn_t COMPAR)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The 'lfind' function searches in the array with '*NMEMB' elements
      of SIZE bytes pointed to by BASE for an element which matches the
      one pointed to by KEY.  The function pointed to by COMPAR is used
@@ -4597,6 +6131,9 @@ two functions can be found in 'search.h'.
 
  -- Function: void * lsearch (const void *KEY, void *BASE, size_t
           *NMEMB, size_t SIZE, comparison_fn_t COMPAR)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The 'lsearch' function is similar to the 'lfind' function.  It
      searches the given array for an element and returns it if found.
      The difference is that if no matching element is found the
@@ -4617,6 +6154,9 @@ file 'stdlib.h'.
 
  -- Function: void * bsearch (const void *KEY, const void *ARRAY, size_t
           COUNT, size_t SIZE, comparison_fn_t COMPARE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Safe | *Note POSIX Safety
+     Concepts::.
+
      The 'bsearch' function searches the sorted array ARRAY for an
      object that is equivalent to KEY.  The array contains COUNT
      elements, each of which is of size SIZE bytes.
@@ -4647,6 +6187,9 @@ function.  The prototype for this function is in 'stdlib.h'.
 
  -- Function: void qsort (void *ARRAY, size_t COUNT, size_t SIZE,
           comparison_fn_t COMPARE)
+     Preliminary: | MT-Safe | AS-Safe | AC-Unsafe corrupt | *Note POSIX
+     Safety Concepts::.
+
      The QSORT function sorts the array ARRAY.  The array contains COUNT
      elements, each of which is of size SIZE.
 
@@ -4844,6 +6387,9 @@ and search differ.  One possible implementation is using hashing tables.
 The following functions are declared in the header file 'search.h'.
 
  -- Function: int hcreate (size_t NEL)
+     Preliminary: | MT-Unsafe race:hsearch | AS-Unsafe heap | AC-Unsafe
+     corrupt mem | *Note POSIX Safety Concepts::.
+
      The 'hcreate' function creates a hashing table which can contain at
      least NEL elements.  There is no possibility to grow this table so
      it is necessary to choose the value for NEL wisely.  The method
@@ -4859,7 +6405,7 @@ The following functions are declared in the header file 'search.h'.
      one hashing table used through the whole program.  The table is
      allocated in local memory out of control of the programmer.  As an
      extension the GNU C Library provides an additional set of functions
-     with an reentrant interface which provide a similar interface but
+     with a reentrant interface which provide a similar interface but
      which allow to keep arbitrarily many hashing tables.
 
      It is possible to use more than one hashing table in the program
@@ -4870,6 +6416,9 @@ The following functions are declared in the header file 'search.h'.
      a hashing table in use or the program runs out of memory.
 
  -- Function: void hdestroy (void)
+     Preliminary: | MT-Unsafe race:hsearch | AS-Unsafe heap | AC-Unsafe
+     corrupt mem | *Note POSIX Safety Concepts::.
+
      The 'hdestroy' function can be used to free all the resources
      allocated in a previous call of 'hcreate'.  After a call to this
      function it is again possible to call 'hcreate' and allocate a new
@@ -4909,6 +6458,9 @@ using this type:
           is not used.
 
  -- Function: ENTRY * hsearch (ENTRY ITEM, ACTION ACTION)
+     Preliminary: | MT-Unsafe race:hsearch | AS-Unsafe | AC-Unsafe
+     corrupt/action==ENTER | *Note POSIX Safety Concepts::.
+
      To search in a hashing table created using 'hcreate' the 'hsearch'
      function must be used.  This function can perform simple search for
      an element (if ACTION has the 'FIND') or it can alternatively
@@ -4936,6 +6488,9 @@ hsearch_data'.  This type should be treated as opaque, none of its
 members should be changed directly.
 
  -- Function: int hcreate_r (size_t NEL, struct hsearch_data *HTAB)
+     Preliminary: | MT-Safe race:htab | AS-Unsafe heap | AC-Unsafe
+     corrupt mem | *Note POSIX Safety Concepts::.
+
      The 'hcreate_r' function initializes the object pointed to by HTAB
      to contain a hashing table with at least NEL elements.  So this
      function is equivalent to the 'hcreate' function except that the
@@ -4951,6 +6506,9 @@ members should be changed directly.
      means the programs ran out of memory.
 
  -- Function: void hdestroy_r (struct hsearch_data *HTAB)
+     Preliminary: | MT-Safe race:htab | AS-Unsafe heap | AC-Unsafe
+     corrupt mem | *Note POSIX Safety Concepts::.
+
      The 'hdestroy_r' function frees all resources allocated by the
      'hcreate_r' function for this very same object HTAB.  As for
      'hdestroy' it is the programs responsibility to free the strings
@@ -4958,6 +6516,9 @@ members should be changed directly.
 
  -- Function: int hsearch_r (ENTRY ITEM, ACTION ACTION, ENTRY **RETVAL,
           struct hsearch_data *HTAB)
+     Preliminary: | MT-Safe race:htab | AS-Safe | AC-Unsafe
+     corrupt/action==ENTER | *Note POSIX Safety Concepts::.
+
      The 'hsearch_r' function is equivalent to 'hsearch'.  The meaning
      of the first two arguments is identical.  But instead of operating
      on a single global hashing table the function works on the table
@@ -4973,7 +6534,7 @@ members should be changed directly.
      reason for the failure.
 
      'ENOMEM'
-          The table is filled and 'hsearch_r' was called with an so far
+          The table is filled and 'hsearch_r' was called with a so far
           unknown key and ACTION set to 'ENTER'.
      'ESRCH'
           The ACTION parameter is 'FIND' and no corresponding element is
@@ -5007,6 +6568,9 @@ file 'search.h'.
 
  -- Function: void * tsearch (const void *KEY, void **ROOTP,
           comparison_fn_t COMPAR)
+     Preliminary: | MT-Safe race:rootp | AS-Unsafe heap | AC-Unsafe
+     corrupt mem | *Note POSIX Safety Concepts::.
+
      The 'tsearch' function searches in the tree pointed to by '*ROOTP'
      for an element matching KEY.  The function pointed to by COMPAR is
      used to determine whether two elements match.  *Note Comparison
@@ -5034,6 +6598,9 @@ file 'search.h'.
 
  -- Function: void * tfind (const void *KEY, void *const *ROOTP,
           comparison_fn_t COMPAR)
+     Preliminary: | MT-Safe race:rootp | AS-Safe | AC-Safe | *Note POSIX
+     Safety Concepts::.
+
      The 'tfind' function is similar to the 'tsearch' function.  It
      locates an element matching the one pointed to by KEY and returns a
      pointer to this element.  But if no matching element is available
@@ -5045,6 +6612,9 @@ file 'search.h'.
 
  -- Function: void * tdelete (const void *KEY, void **ROOTP,
           comparison_fn_t COMPAR)
+     Preliminary: | MT-Safe race:rootp | AS-Unsafe heap | AC-Unsafe
+     corrupt mem | *Note POSIX Safety Concepts::.
+
      To remove a specific element matching KEY from the tree 'tdelete'
      can be used.  It locates the matching element using the same method
      as 'tfind'.  The corresponding element is then removed and a
@@ -5055,6 +6625,9 @@ file 'search.h'.
      'NULL'.
 
  -- Function: void tdestroy (void *VROOT, __free_fn_t FREEFCT)
+     Preliminary: | MT-Safe | AS-Unsafe heap | AC-Unsafe mem | *Note
+     POSIX Safety Concepts::.
+
      If the complete search tree has to be removed one can use
      'tdestroy'.  It frees all resources allocated by the 'tsearch'
      function to generate the tree pointed to by VROOT.
@@ -5102,6 +6675,9 @@ is an enumeration type.
           The current node is a leaf.
 
  -- Function: void twalk (const void *ROOT, __action_fn_t ACTION)
+     Preliminary: | MT-Safe race:root | AS-Safe | AC-Safe | *Note POSIX
+     Safety Concepts::.
+
      For each node in the tree with a node pointed to by ROOT, the
      'twalk' function calls the function provided by the parameter
      ACTION.  For leaf nodes the function is called exactly once with
@@ -5151,6 +6727,9 @@ fit the pattern or not.  The symbols described here are all declared in
 
  -- Function: int fnmatch (const char *PATTERN, const char *STRING, int
           FLAGS)
+     Preliminary: | MT-Safe env locale | AS-Unsafe heap | AC-Unsafe mem
+     | *Note POSIX Safety Concepts::.
+
      This function tests whether the string STRING matches the pattern
      PATTERN.  It returns '0' if they do match; otherwise, it returns
      the nonzero value 'FNM_NOMATCH'.  The arguments PATTERN and STRING
@@ -5159,11 +6738,8 @@ fit the pattern or not.  The symbols described here are all declared in
      The argument FLAGS is a combination of flag bits that alter the
      details of matching.  See below for a list of the defined flags.
 
-     In the GNU C Library, 'fnmatch' cannot experience an "error"--it
-     always returns an answer for whether the match succeeds.  However,
-     other implementations of 'fnmatch' might sometimes report "errors".
-     They would do so by returning nonzero values that are not equal to
-     'FNM_NOMATCH'.
+     In the GNU C Library, 'fnmatch' might sometimes report "errors" by
+     returning nonzero values that are not equal to 'FNM_NOMATCH'.
 
    These are the available flags for the FLAGS argument:
 
@@ -5432,6 +7008,10 @@ types of the members 'gl_readdir', 'gl_stat', and 'gl_lstat'.
 
  -- Function: int glob (const char *PATTERN, int FLAGS, int (*ERRFUNC)
           (const char *FILENAME, int ERROR-CODE), glob_t *VECTOR-PTR)
+     Preliminary: | MT-Unsafe race:utent env sig:ALRM timer locale |
+     AS-Unsafe dlopen plugin corrupt heap lock | AC-Unsafe corrupt lock
+     fd mem | *Note POSIX Safety Concepts::.
+
      The function 'glob' does globbing using the pattern PATTERN in the
      current directory.  It puts the result in a newly allocated vector,
      and stores the size and address of this vector into '*VECTOR-PTR'.
@@ -5487,6 +7067,10 @@ types of the members 'gl_readdir', 'gl_stat', and 'gl_lstat'.
 
  -- Function: int glob64 (const char *PATTERN, int FLAGS, int (*ERRFUNC)
           (const char *FILENAME, int ERROR-CODE), glob64_t *VECTOR-PTR)
+     Preliminary: | MT-Unsafe race:utent env sig:ALRM timer locale |
+     AS-Unsafe dlopen corrupt heap lock | AC-Unsafe corrupt lock fd mem
+     | *Note POSIX Safety Concepts::.
+
      The 'glob64' function was added as part of the Large File Summit
      extensions but is not part of the original LFS proposal.  The
      reason for this is simple: it is not necessary.  The necessity for
@@ -5501,1280 +7085,4 @@ types of the members 'gl_readdir', 'gl_stat', and 'gl_lstat'.
      aspects.
 
      This function is a GNU extension.
-
-
-File: libc.info,  Node: Flags for Globbing,  Next: More Flags for Globbing,  Prev: Calling Glob,  Up: Globbing
-
-10.2.2 Flags for Globbing
--------------------------
-
-This section describes the standard flags that you can specify in the
-FLAGS argument to 'glob'.  Choose the flags you want, and combine them
-with the C bitwise OR operator '|'.
-
-   Note that there are *note More Flags for Globbing:: available as GNU
-extensions.
-
-'GLOB_APPEND'
-     Append the words from this expansion to the vector of words
-     produced by previous calls to 'glob'.  This way you can effectively
-     expand several words as if they were concatenated with spaces
-     between them.
-
-     In order for appending to work, you must not modify the contents of
-     the word vector structure between calls to 'glob'.  And, if you set
-     'GLOB_DOOFFS' in the first call to 'glob', you must also set it
-     when you append to the results.
-
-     Note that the pointer stored in 'gl_pathv' may no longer be valid
-     after you call 'glob' the second time, because 'glob' might have
-     relocated the vector.  So always fetch 'gl_pathv' from the 'glob_t'
-     structure after each 'glob' call; *never* save the pointer across
-     calls.
-
-'GLOB_DOOFFS'
-     Leave blank slots at the beginning of the vector of words.  The
-     'gl_offs' field says how many slots to leave.  The blank slots
-     contain null pointers.
-
-'GLOB_ERR'
-     Give up right away and report an error if there is any difficulty
-     reading the directories that must be read in order to expand
-     PATTERN fully.  Such difficulties might include a directory in
-     which you don't have the requisite access.  Normally, 'glob' tries
-     its best to keep on going despite any errors, reading whatever
-     directories it can.
-
-     You can exercise even more control than this by specifying an
-     error-handler function ERRFUNC when you call 'glob'.  If ERRFUNC is
-     not a null pointer, then 'glob' doesn't give up right away when it
-     can't read a directory; instead, it calls ERRFUNC with two
-     arguments, like this:
-
-          (*ERRFUNC) (FILENAME, ERROR-CODE)
-
-     The argument FILENAME is the name of the directory that 'glob'
-     couldn't open or couldn't read, and ERROR-CODE is the 'errno' value
-     that was reported to 'glob'.
-
-     If the error handler function returns nonzero, then 'glob' gives up
-     right away.  Otherwise, it continues.
-
-'GLOB_MARK'
-     If the pattern matches the name of a directory, append '/' to the
-     directory's name when returning it.
-
-'GLOB_NOCHECK'
-     If the pattern doesn't match any file names, return the pattern
-     itself as if it were a file name that had been matched.  (Normally,
-     when the pattern doesn't match anything, 'glob' returns that there
-     were no matches.)
-
-'GLOB_NOESCAPE'
-     Don't treat the '\' character specially in patterns.  Normally, '\'
-     quotes the following character, turning off its special meaning (if
-     any) so that it matches only itself.  When quoting is enabled, the
-     pattern '\?' matches only the string '?', because the question mark
-     in the pattern acts like an ordinary character.
-
-     If you use 'GLOB_NOESCAPE', then '\' is an ordinary character.
-
-     'glob' does its work by calling the function 'fnmatch' repeatedly.
-     It handles the flag 'GLOB_NOESCAPE' by turning on the
-     'FNM_NOESCAPE' flag in calls to 'fnmatch'.
-
-'GLOB_NOSORT'
-     Don't sort the file names; return them in no particular order.  (In
-     practice, the order will depend on the order of the entries in the
-     directory.)  The only reason _not_ to sort is to save time.
-
-
-File: libc.info,  Node: More Flags for Globbing,  Prev: Flags for Globbing,  Up: Globbing
-
-10.2.3 More Flags for Globbing
-------------------------------
-
-Beside the flags described in the last section, the GNU implementation
-of 'glob' allows a few more flags which are also defined in the 'glob.h'
-file.  Some of the extensions implement functionality which is available
-in modern shell implementations.
-
-'GLOB_PERIOD'
-     The '.' character (period) is treated special.  It cannot be
-     matched by wildcards.  *Note Wildcard Matching::, 'FNM_PERIOD'.
-
-'GLOB_MAGCHAR'
-     The 'GLOB_MAGCHAR' value is not to be given to 'glob' in the FLAGS
-     parameter.  Instead, 'glob' sets this bit in the GL_FLAGS element
-     of the GLOB_T structure provided as the result if the pattern used
-     for matching contains any wildcard character.
-
-'GLOB_ALTDIRFUNC'
-     Instead of the using the using the normal functions for accessing
-     the filesystem the 'glob' implementation uses the user-supplied
-     functions specified in the structure pointed to by PGLOB parameter.
-     For more information about the functions refer to the sections
-     about directory handling see *note Accessing Directories::, and
-     *note Reading Attributes::.
-
-'GLOB_BRACE'
-     If this flag is given the handling of braces in the pattern is
-     changed.  It is now required that braces appear correctly grouped.
-     I.e., for each opening brace there must be a closing one.  Braces
-     can be used recursively.  So it is possible to define one brace
-     expression in another one.  It is important to note that the range
-     of each brace expression is completely contained in the outer brace
-     expression (if there is one).
-
-     The string between the matching braces is separated into single
-     expressions by splitting at ',' (comma) characters.  The commas
-     themselves are discarded.  Please note what we said above about
-     recursive brace expressions.  The commas used to separate the
-     subexpressions must be at the same level.  Commas in brace
-     subexpressions are not matched.  They are used during expansion of
-     the brace expression of the deeper level.  The example below shows
-     this
-
-          glob ("{foo/{,bar,biz},baz}", GLOB_BRACE, NULL, &result)
-
-     is equivalent to the sequence
-
-          glob ("foo/", GLOB_BRACE, NULL, &result)
-          glob ("foo/bar", GLOB_BRACE|GLOB_APPEND, NULL, &result)
-          glob ("foo/biz", GLOB_BRACE|GLOB_APPEND, NULL, &result)
-          glob ("baz", GLOB_BRACE|GLOB_APPEND, NULL, &result)
-
-     if we leave aside error handling.
-
-'GLOB_NOMAGIC'
-     If the pattern contains no wildcard constructs (it is a literal
-     file name), return it as the sole "matching" word, even if no file
-     exists by that name.
-
-'GLOB_TILDE'
-     If this flag is used the character '~' (tilde) is handled special
-     if it appears at the beginning of the pattern.  Instead of being
-     taken verbatim it is used to represent the home directory of a
-     known user.
-
-     If '~' is the only character in pattern or it is followed by a '/'
-     (slash), the home directory of the process owner is substituted.
-     Using 'getlogin' and 'getpwnam' the information is read from the
-     system databases.  As an example take user 'bart' with his home
-     directory at '/home/bart'.  For him a call like
-
-          glob ("~/bin/*", GLOB_TILDE, NULL, &result)
-
-     would return the contents of the directory '/home/bart/bin'.
-     Instead of referring to the own home directory it is also possible
-     to name the home directory of other users.  To do so one has to
-     append the user name after the tilde character.  So the contents of
-     user 'homer''s 'bin' directory can be retrieved by
-
-          glob ("~homer/bin/*", GLOB_TILDE, NULL, &result)
-
-     If the user name is not valid or the home directory cannot be
-     determined for some reason the pattern is left untouched and itself
-     used as the result.  I.e., if in the last example 'home' is not
-     available the tilde expansion yields to '"~homer/bin/*"' and 'glob'
-     is not looking for a directory named '~homer'.
-
-     This functionality is equivalent to what is available in C-shells
-     if the 'nonomatch' flag is set.
-
-'GLOB_TILDE_CHECK'
-     If this flag is used 'glob' behaves like as if 'GLOB_TILDE' is
-     given.  The only difference is that if the user name is not
-     available or the home directory cannot be determined for other
-     reasons this leads to an error.  'glob' will return 'GLOB_NOMATCH'
-     instead of using the pattern itself as the name.
-
-     This functionality is equivalent to what is available in C-shells
-     if 'nonomatch' flag is not set.
-
-'GLOB_ONLYDIR'
-     If this flag is used the globbing function takes this as a *hint*
-     that the caller is only interested in directories matching the
-     pattern.  If the information about the type of the file is easily
-     available non-directories will be rejected but no extra work will
-     be done to determine the information for each file.  I.e., the
-     caller must still be able to filter directories out.
-
-     This functionality is only available with the GNU 'glob'
-     implementation.  It is mainly used internally to increase the
-     performance but might be useful for a user as well and therefore is
-     documented here.
-
-   Calling 'glob' will in most cases allocate resources which are used
-to represent the result of the function call.  If the same object of
-type 'glob_t' is used in multiple call to 'glob' the resources are freed
-or reused so that no leaks appear.  But this does not include the time
-when all 'glob' calls are done.
-
- -- Function: void globfree (glob_t *PGLOB)
-     The 'globfree' function frees all resources allocated by previous
-     calls to 'glob' associated with the object pointed to by PGLOB.
-     This function should be called whenever the currently used 'glob_t'
-     typed object isn't used anymore.
-
- -- Function: void globfree64 (glob64_t *PGLOB)
-     This function is equivalent to 'globfree' but it frees records of
-     type 'glob64_t' which were allocated by 'glob64'.
-
-
-File: libc.info,  Node: Regular Expressions,  Next: Word Expansion,  Prev: Globbing,  Up: Pattern Matching
-
-10.3 Regular Expression Matching
-================================
-
-The GNU C Library supports two interfaces for matching regular
-expressions.  One is the standard POSIX.2 interface, and the other is
-what the GNU C Library has had for many years.
-
-   Both interfaces are declared in the header file 'regex.h'.  If you
-define '_POSIX_C_SOURCE', then only the POSIX.2 functions, structures,
-and constants are declared.
-
-* Menu:
-
-* POSIX Regexp Compilation::    Using 'regcomp' to prepare to match.
-* Flags for POSIX Regexps::     Syntax variations for 'regcomp'.
-* Matching POSIX Regexps::      Using 'regexec' to match the compiled
-				   pattern that you get from 'regcomp'.
-* Regexp Subexpressions::       Finding which parts of the string were matched.
-* Subexpression Complications:: Find points of which parts were matched.
-* Regexp Cleanup::		Freeing storage; reporting errors.
-
-
-File: libc.info,  Node: POSIX Regexp Compilation,  Next: Flags for POSIX Regexps,  Up: Regular Expressions
-
-10.3.1 POSIX Regular Expression Compilation
--------------------------------------------
-
-Before you can actually match a regular expression, you must "compile"
-it.  This is not true compilation--it produces a special data structure,
-not machine instructions.  But it is like ordinary compilation in that
-its purpose is to enable you to "execute" the pattern fast.  (*Note
-Matching POSIX Regexps::, for how to use the compiled regular expression
-for matching.)
-
-   There is a special data type for compiled regular expressions:
-
- -- Data Type: regex_t
-     This type of object holds a compiled regular expression.  It is
-     actually a structure.  It has just one field that your programs
-     should look at:
-
-     're_nsub'
-          This field holds the number of parenthetical subexpressions in
-          the regular expression that was compiled.
-
-     There are several other fields, but we don't describe them here,
-     because only the functions in the library should use them.
-
-   After you create a 'regex_t' object, you can compile a regular
-expression into it by calling 'regcomp'.
-
- -- Function: int regcomp (regex_t *restrict COMPILED, const char
-          *restrict PATTERN, int CFLAGS)
-     The function 'regcomp' "compiles" a regular expression into a data
-     structure that you can use with 'regexec' to match against a
-     string.  The compiled regular expression format is designed for
-     efficient matching.  'regcomp' stores it into '*COMPILED'.
-
-     It's up to you to allocate an object of type 'regex_t' and pass its
-     address to 'regcomp'.
-
-     The argument CFLAGS lets you specify various options that control
-     the syntax and semantics of regular expressions.  *Note Flags for
-     POSIX Regexps::.
-
-     If you use the flag 'REG_NOSUB', then 'regcomp' omits from the
-     compiled regular expression the information necessary to record how
-     subexpressions actually match.  In this case, you might as well
-     pass '0' for the MATCHPTR and NMATCH arguments when you call
-     'regexec'.
-
-     If you don't use 'REG_NOSUB', then the compiled regular expression
-     does have the capacity to record how subexpressions match.  Also,
-     'regcomp' tells you how many subexpressions PATTERN has, by storing
-     the number in 'COMPILED->re_nsub'.  You can use that value to
-     decide how long an array to allocate to hold information about
-     subexpression matches.
-
-     'regcomp' returns '0' if it succeeds in compiling the regular
-     expression; otherwise, it returns a nonzero error code (see the
-     table below).  You can use 'regerror' to produce an error message
-     string describing the reason for a nonzero value; see *note Regexp
-     Cleanup::.
-
-   Here are the possible nonzero values that 'regcomp' can return:
-
-'REG_BADBR'
-     There was an invalid '\{...\}' construct in the regular expression.
-     A valid '\{...\}' construct must contain either a single number, or
-     two numbers in increasing order separated by a comma.
-
-'REG_BADPAT'
-     There was a syntax error in the regular expression.
-
-'REG_BADRPT'
-     A repetition operator such as '?' or '*' appeared in a bad position
-     (with no preceding subexpression to act on).
-
-'REG_ECOLLATE'
-     The regular expression referred to an invalid collating element
-     (one not defined in the current locale for string collation).
-     *Note Locale Categories::.
-
-'REG_ECTYPE'
-     The regular expression referred to an invalid character class name.
-
-'REG_EESCAPE'
-     The regular expression ended with '\'.
-
-'REG_ESUBREG'
-     There was an invalid number in the '\DIGIT' construct.
-
-'REG_EBRACK'
-     There were unbalanced square brackets in the regular expression.
-
-'REG_EPAREN'
-     An extended regular expression had unbalanced parentheses, or a
-     basic regular expression had unbalanced '\(' and '\)'.
-
-'REG_EBRACE'
-     The regular expression had unbalanced '\{' and '\}'.
-
-'REG_ERANGE'
-     One of the endpoints in a range expression was invalid.
-
-'REG_ESPACE'
-     'regcomp' ran out of memory.
-
-
-File: libc.info,  Node: Flags for POSIX Regexps,  Next: Matching POSIX Regexps,  Prev: POSIX Regexp Compilation,  Up: Regular Expressions
-
-10.3.2 Flags for POSIX Regular Expressions
-------------------------------------------
-
-These are the bit flags that you can use in the CFLAGS operand when
-compiling a regular expression with 'regcomp'.
-
-'REG_EXTENDED'
-     Treat the pattern as an extended regular expression, rather than as
-     a basic regular expression.
-
-'REG_ICASE'
-     Ignore case when matching letters.
-
-'REG_NOSUB'
-     Don't bother storing the contents of the MATCHES-PTR array.
-
-'REG_NEWLINE'
-     Treat a newline in STRING as dividing STRING into multiple lines,
-     so that '$' can match before the newline and '^' can match after.
-     Also, don't permit '.' to match a newline, and don't permit
-     '[^...]' to match a newline.
-
-     Otherwise, newline acts like any other ordinary character.
-
-
-File: libc.info,  Node: Matching POSIX Regexps,  Next: Regexp Subexpressions,  Prev: Flags for POSIX Regexps,  Up: Regular Expressions
-
-10.3.3 Matching a Compiled POSIX Regular Expression
----------------------------------------------------
-
-Once you have compiled a regular expression, as described in *note POSIX
-Regexp Compilation::, you can match it against strings using 'regexec'.
-A match anywhere inside the string counts as success, unless the regular
-expression contains anchor characters ('^' or '$').
-
- -- Function: int regexec (const regex_t *restrict COMPILED, const char
-          *restrict STRING, size_t NMATCH, regmatch_t
-          MATCHPTR[restrict], int EFLAGS)
-     This function tries to match the compiled regular expression
-     '*COMPILED' against STRING.
-
-     'regexec' returns '0' if the regular expression matches; otherwise,
-     it returns a nonzero value.  See the table below for what nonzero
-     values mean.  You can use 'regerror' to produce an error message
-     string describing the reason for a nonzero value; see *note Regexp
-     Cleanup::.
-
-     The argument EFLAGS is a word of bit flags that enable various
-     options.
-
-     If you want to get information about what part of STRING actually
-     matched the regular expression or its subexpressions, use the
-     arguments MATCHPTR and NMATCH.  Otherwise, pass '0' for NMATCH, and
-     'NULL' for MATCHPTR.  *Note Regexp Subexpressions::.
-
-   You must match the regular expression with the same set of current
-locales that were in effect when you compiled the regular expression.
-
-   The function 'regexec' accepts the following flags in the EFLAGS
-argument:
-
-'REG_NOTBOL'
-     Do not regard the beginning of the specified string as the
-     beginning of a line; more generally, don't make any assumptions
-     about what text might precede it.
-
-'REG_NOTEOL'
-     Do not regard the end of the specified string as the end of a line;
-     more generally, don't make any assumptions about what text might
-     follow it.
-
-   Here are the possible nonzero values that 'regexec' can return:
-
-'REG_NOMATCH'
-     The pattern didn't match the string.  This isn't really an error.
-
-'REG_ESPACE'
-     'regexec' ran out of memory.
-
-
-File: libc.info,  Node: Regexp Subexpressions,  Next: Subexpression Complications,  Prev: Matching POSIX Regexps,  Up: Regular Expressions
-
-10.3.4 Match Results with Subexpressions
-----------------------------------------
-
-When 'regexec' matches parenthetical subexpressions of PATTERN, it
-records which parts of STRING they match.  It returns that information
-by storing the offsets into an array whose elements are structures of
-type 'regmatch_t'.  The first element of the array (index '0') records
-the part of the string that matched the entire regular expression.  Each
-other element of the array records the beginning and end of the part
-that matched a single parenthetical subexpression.
-
- -- Data Type: regmatch_t
-     This is the data type of the MATCHARRAY array that you pass to
-     'regexec'.  It contains two structure fields, as follows:
-
-     'rm_so'
-          The offset in STRING of the beginning of a substring.  Add
-          this value to STRING to get the address of that part.
-
-     'rm_eo'
-          The offset in STRING of the end of the substring.
-
- -- Data Type: regoff_t
-     'regoff_t' is an alias for another signed integer type.  The fields
-     of 'regmatch_t' have type 'regoff_t'.
-
-   The 'regmatch_t' elements correspond to subexpressions positionally;
-the first element (index '1') records where the first subexpression
-matched, the second element records the second subexpression, and so on.
-The order of the subexpressions is the order in which they begin.
-
-   When you call 'regexec', you specify how long the MATCHPTR array is,
-with the NMATCH argument.  This tells 'regexec' how many elements to
-store.  If the actual regular expression has more than NMATCH
-subexpressions, then you won't get offset information about the rest of
-them.  But this doesn't alter whether the pattern matches a particular
-string or not.
-
-   If you don't want 'regexec' to return any information about where the
-subexpressions matched, you can either supply '0' for NMATCH, or use the
-flag 'REG_NOSUB' when you compile the pattern with 'regcomp'.
-
-
-File: libc.info,  Node: Subexpression Complications,  Next: Regexp Cleanup,  Prev: Regexp Subexpressions,  Up: Regular Expressions
-
-10.3.5 Complications in Subexpression Matching
-----------------------------------------------
-
-Sometimes a subexpression matches a substring of no characters.  This
-happens when 'f\(o*\)' matches the string 'fum'.  (It really matches
-just the 'f'.)  In this case, both of the offsets identify the point in
-the string where the null substring was found.  In this example, the
-offsets are both '1'.
-
-   Sometimes the entire regular expression can match without using some
-of its subexpressions at all--for example, when 'ba\(na\)*' matches the
-string 'ba', the parenthetical subexpression is not used.  When this
-happens, 'regexec' stores '-1' in both fields of the element for that
-subexpression.
-
-   Sometimes matching the entire regular expression can match a
-particular subexpression more than once--for example, when 'ba\(na\)*'
-matches the string 'bananana', the parenthetical subexpression matches
-three times.  When this happens, 'regexec' usually stores the offsets of
-the last part of the string that matched the subexpression.  In the case
-of 'bananana', these offsets are '6' and '8'.
-
-   But the last match is not always the one that is chosen.  It's more
-accurate to say that the last _opportunity_ to match is the one that
-takes precedence.  What this means is that when one subexpression
-appears within another, then the results reported for the inner
-subexpression reflect whatever happened on the last match of the outer
-subexpression.  For an example, consider '\(ba\(na\)*s \)*' matching the
-string 'bananas bas '.  The last time the inner expression actually
-matches is near the end of the first word.  But it is _considered_ again
-in the second word, and fails to match there.  'regexec' reports nonuse
-of the "na" subexpression.
-
-   Another place where this rule applies is when the regular expression
-     \(ba\(na\)*s \|nefer\(ti\)* \)*
-matches 'bananas nefertiti'.  The "na" subexpression does match in the
-first word, but it doesn't match in the second word because the other
-alternative is used there.  Once again, the second repetition of the
-outer subexpression overrides the first, and within that second
-repetition, the "na" subexpression is not used.  So 'regexec' reports
-nonuse of the "na" subexpression.
-
-
-File: libc.info,  Node: Regexp Cleanup,  Prev: Subexpression Complications,  Up: Regular Expressions
-
-10.3.6 POSIX Regexp Matching Cleanup
-------------------------------------
-
-When you are finished using a compiled regular expression, you can free
-the storage it uses by calling 'regfree'.
-
- -- Function: void regfree (regex_t *COMPILED)
-     Calling 'regfree' frees all the storage that '*COMPILED' points to.
-     This includes various internal fields of the 'regex_t' structure
-     that aren't documented in this manual.
-
-     'regfree' does not free the object '*COMPILED' itself.
-
-   You should always free the space in a 'regex_t' structure with
-'regfree' before using the structure to compile another regular
-expression.
-
-   When 'regcomp' or 'regexec' reports an error, you can use the
-function 'regerror' to turn it into an error message string.
-
- -- Function: size_t regerror (int ERRCODE, const regex_t *restrict
-          COMPILED, char *restrict BUFFER, size_t LENGTH)
-     This function produces an error message string for the error code
-     ERRCODE, and stores the string in LENGTH bytes of memory starting
-     at BUFFER.  For the COMPILED argument, supply the same compiled
-     regular expression structure that 'regcomp' or 'regexec' was
-     working with when it got the error.  Alternatively, you can supply
-     'NULL' for COMPILED; you will still get a meaningful error message,
-     but it might not be as detailed.
-
-     If the error message can't fit in LENGTH bytes (including a
-     terminating null character), then 'regerror' truncates it.  The
-     string that 'regerror' stores is always null-terminated even if it
-     has been truncated.
-
-     The return value of 'regerror' is the minimum length needed to
-     store the entire error message.  If this is less than LENGTH, then
-     the error message was not truncated, and you can use it.
-     Otherwise, you should call 'regerror' again with a larger buffer.
-
-     Here is a function which uses 'regerror', but always dynamically
-     allocates a buffer for the error message:
-
-          char *get_regerror (int errcode, regex_t *compiled)
-          {
-            size_t length = regerror (errcode, compiled, NULL, 0);
-            char *buffer = xmalloc (length);
-            (void) regerror (errcode, compiled, buffer, length);
-            return buffer;
-          }
-
-
-File: libc.info,  Node: Word Expansion,  Prev: Regular Expressions,  Up: Pattern Matching
-
-10.4 Shell-Style Word Expansion
-===============================
-
-"Word expansion" means the process of splitting a string into "words"
-and substituting for variables, commands, and wildcards just as the
-shell does.
-
-   For example, when you write 'ls -l foo.c', this string is split into
-three separate words--'ls', '-l' and 'foo.c'.  This is the most basic
-function of word expansion.
-
-   When you write 'ls *.c', this can become many words, because the word
-'*.c' can be replaced with any number of file names.  This is called
-"wildcard expansion", and it is also a part of word expansion.
-
-   When you use 'echo $PATH' to print your path, you are taking
-advantage of "variable substitution", which is also part of word
-expansion.
-
-   Ordinary programs can perform word expansion just like the shell by
-calling the library function 'wordexp'.
-
-* Menu:
-
-* Expansion Stages::            What word expansion does to a string.
-* Calling Wordexp::             How to call 'wordexp'.
-* Flags for Wordexp::           Options you can enable in 'wordexp'.
-* Wordexp Example::             A sample program that does word expansion.
-* Tilde Expansion::             Details of how tilde expansion works.
-* Variable Substitution::       Different types of variable substitution.
-
-
-File: libc.info,  Node: Expansion Stages,  Next: Calling Wordexp,  Up: Word Expansion
-
-10.4.1 The Stages of Word Expansion
------------------------------------
-
-When word expansion is applied to a sequence of words, it performs the
-following transformations in the order shown here:
-
-  1. "Tilde expansion": Replacement of '~foo' with the name of the home
-     directory of 'foo'.
-
-  2. Next, three different transformations are applied in the same step,
-     from left to right:
-
-        * "Variable substitution": Environment variables are substituted
-          for references such as '$foo'.
-
-        * "Command substitution": Constructs such as '`cat foo`' and the
-          equivalent '$(cat foo)' are replaced with the output from the
-          inner command.
-
-        * "Arithmetic expansion": Constructs such as '$(($x-1))' are
-          replaced with the result of the arithmetic computation.
-
-  3. "Field splitting": subdivision of the text into "words".
-
-  4. "Wildcard expansion": The replacement of a construct such as '*.c'
-     with a list of '.c' file names.  Wildcard expansion applies to an
-     entire word at a time, and replaces that word with 0 or more file
-     names that are themselves words.
-
-  5. "Quote removal": The deletion of string-quotes, now that they have
-     done their job by inhibiting the above transformations when
-     appropriate.
-
-   For the details of these transformations, and how to write the
-constructs that use them, see 'The BASH Manual' (to appear).
-
-
-File: libc.info,  Node: Calling Wordexp,  Next: Flags for Wordexp,  Prev: Expansion Stages,  Up: Word Expansion
-
-10.4.2 Calling 'wordexp'
-------------------------
-
-All the functions, constants and data types for word expansion are
-declared in the header file 'wordexp.h'.
-
-   Word expansion produces a vector of words (strings).  To return this
-vector, 'wordexp' uses a special data type, 'wordexp_t', which is a
-structure.  You pass 'wordexp' the address of the structure, and it
-fills in the structure's fields to tell you about the results.
-
- -- Data Type: wordexp_t
-     This data type holds a pointer to a word vector.  More precisely,
-     it records both the address of the word vector and its size.
-
-     'we_wordc'
-          The number of elements in the vector.
-
-     'we_wordv'
-          The address of the vector.  This field has type 'char **'.
-
-     'we_offs'
-          The offset of the first real element of the vector, from its
-          nominal address in the 'we_wordv' field.  Unlike the other
-          fields, this is always an input to 'wordexp', rather than an
-          output from it.
-
-          If you use a nonzero offset, then that many elements at the
-          beginning of the vector are left empty.  (The 'wordexp'
-          function fills them with null pointers.)
-
-          The 'we_offs' field is meaningful only if you use the
-          'WRDE_DOOFFS' flag.  Otherwise, the offset is always zero
-          regardless of what is in this field, and the first real
-          element comes at the beginning of the vector.
-
- -- Function: int wordexp (const char *WORDS, wordexp_t
-          *WORD-VECTOR-PTR, int FLAGS)
-     Perform word expansion on the string WORDS, putting the result in a
-     newly allocated vector, and store the size and address of this
-     vector into '*WORD-VECTOR-PTR'.  The argument FLAGS is a
-     combination of bit flags; see *note Flags for Wordexp::, for
-     details of the flags.
-
-     You shouldn't use any of the characters '|&;<>' in the string WORDS
-     unless they are quoted; likewise for newline.  If you use these
-     characters unquoted, you will get the 'WRDE_BADCHAR' error code.
-     Don't use parentheses or braces unless they are quoted or part of a
-     word expansion construct.  If you use quotation characters ''"`',
-     they should come in pairs that balance.
-
-     The results of word expansion are a sequence of words.  The
-     function 'wordexp' allocates a string for each resulting word, then
-     allocates a vector of type 'char **' to store the addresses of
-     these strings.  The last element of the vector is a null pointer.
-     This vector is called the "word vector".
-
-     To return this vector, 'wordexp' stores both its address and its
-     length (number of elements, not counting the terminating null
-     pointer) into '*WORD-VECTOR-PTR'.
-
-     If 'wordexp' succeeds, it returns 0.  Otherwise, it returns one of
-     these error codes:
-
-     'WRDE_BADCHAR'
-          The input string WORDS contains an unquoted invalid character
-          such as '|'.
-
-     'WRDE_BADVAL'
-          The input string refers to an undefined shell variable, and
-          you used the flag 'WRDE_UNDEF' to forbid such references.
-
-     'WRDE_CMDSUB'
-          The input string uses command substitution, and you used the
-          flag 'WRDE_NOCMD' to forbid command substitution.
-
-     'WRDE_NOSPACE'
-          It was impossible to allocate memory to hold the result.  In
-          this case, 'wordexp' can store part of the results--as much as
-          it could allocate room for.
-
-     'WRDE_SYNTAX'
-          There was a syntax error in the input string.  For example, an
-          unmatched quoting character is a syntax error.
-
- -- Function: void wordfree (wordexp_t *WORD-VECTOR-PTR)
-     Free the storage used for the word-strings and vector that
-     '*WORD-VECTOR-PTR' points to.  This does not free the structure
-     '*WORD-VECTOR-PTR' itself--only the other data it points to.
-
-
-File: libc.info,  Node: Flags for Wordexp,  Next: Wordexp Example,  Prev: Calling Wordexp,  Up: Word Expansion
-
-10.4.3 Flags for Word Expansion
--------------------------------
-
-This section describes the flags that you can specify in the FLAGS
-argument to 'wordexp'.  Choose the flags you want, and combine them with
-the C operator '|'.
-
-'WRDE_APPEND'
-     Append the words from this expansion to the vector of words
-     produced by previous calls to 'wordexp'.  This way you can
-     effectively expand several words as if they were concatenated with
-     spaces between them.
-
-     In order for appending to work, you must not modify the contents of
-     the word vector structure between calls to 'wordexp'.  And, if you
-     set 'WRDE_DOOFFS' in the first call to 'wordexp', you must also set
-     it when you append to the results.
-
-'WRDE_DOOFFS'
-     Leave blank slots at the beginning of the vector of words.  The
-     'we_offs' field says how many slots to leave.  The blank slots
-     contain null pointers.
-
-'WRDE_NOCMD'
-     Don't do command substitution; if the input requests command
-     substitution, report an error.
-
-'WRDE_REUSE'
-     Reuse a word vector made by a previous call to 'wordexp'.  Instead
-     of allocating a new vector of words, this call to 'wordexp' will
-     use the vector that already exists (making it larger if necessary).
-
-     Note that the vector may move, so it is not safe to save an old
-     pointer and use it again after calling 'wordexp'.  You must fetch
-     'we_pathv' anew after each call.
-
-'WRDE_SHOWERR'
-     Do show any error messages printed by commands run by command
-     substitution.  More precisely, allow these commands to inherit the
-     standard error output stream of the current process.  By default,
-     'wordexp' gives these commands a standard error stream that
-     discards all output.
-
-'WRDE_UNDEF'
-     If the input refers to a shell variable that is not defined, report
-     an error.
-
-
-File: libc.info,  Node: Wordexp Example,  Next: Tilde Expansion,  Prev: Flags for Wordexp,  Up: Word Expansion
-
-10.4.4 'wordexp' Example
-------------------------
-
-Here is an example of using 'wordexp' to expand several strings and use
-the results to run a shell command.  It also shows the use of
-'WRDE_APPEND' to concatenate the expansions and of 'wordfree' to free
-the space allocated by 'wordexp'.
-
-     int
-     expand_and_execute (const char *program, const char **options)
-     {
-       wordexp_t result;
-       pid_t pid
-       int status, i;
-
-       /* Expand the string for the program to run.  */
-       switch (wordexp (program, &result, 0))
-         {
-         case 0:			/* Successful.  */
-           break;
-         case WRDE_NOSPACE:
-           /* If the error was 'WRDE_NOSPACE',
-              then perhaps part of the result was allocated.  */
-           wordfree (&result);
-         default:                    /* Some other error.  */
-           return -1;
-         }
-
-       /* Expand the strings specified for the arguments.  */
-       for (i = 0; options[i] != NULL; i++)
-         {
-           if (wordexp (options[i], &result, WRDE_APPEND))
-             {
-               wordfree (&result);
-               return -1;
-             }
-         }
-
-       pid = fork ();
-       if (pid == 0)
-         {
-           /* This is the child process.  Execute the command. */
-           execv (result.we_wordv[0], result.we_wordv);
-           exit (EXIT_FAILURE);
-         }
-       else if (pid < 0)
-         /* The fork failed.  Report failure.  */
-         status = -1;
-       else
-         /* This is the parent process.  Wait for the child to complete.  */
-         if (waitpid (pid, &status, 0) != pid)
-           status = -1;
-
-       wordfree (&result);
-       return status;
-     }
-
-
-File: libc.info,  Node: Tilde Expansion,  Next: Variable Substitution,  Prev: Wordexp Example,  Up: Word Expansion
-
-10.4.5 Details of Tilde Expansion
----------------------------------
-
-It's a standard part of shell syntax that you can use '~' at the
-beginning of a file name to stand for your own home directory.  You can
-use '~USER' to stand for USER's home directory.
-
-   "Tilde expansion" is the process of converting these abbreviations to
-the directory names that they stand for.
-
-   Tilde expansion applies to the '~' plus all following characters up
-to whitespace or a slash.  It takes place only at the beginning of a
-word, and only if none of the characters to be transformed is quoted in
-any way.
-
-   Plain '~' uses the value of the environment variable 'HOME' as the
-proper home directory name.  '~' followed by a user name uses
-'getpwname' to look up that user in the user database, and uses whatever
-directory is recorded there.  Thus, '~' followed by your own name can
-give different results from plain '~', if the value of 'HOME' is not
-really your home directory.
-
-
-File: libc.info,  Node: Variable Substitution,  Prev: Tilde Expansion,  Up: Word Expansion
-
-10.4.6 Details of Variable Substitution
----------------------------------------
-
-Part of ordinary shell syntax is the use of '$VARIABLE' to substitute
-the value of a shell variable into a command.  This is called "variable
-substitution", and it is one part of doing word expansion.
-
-   There are two basic ways you can write a variable reference for
-substitution:
-
-'${VARIABLE}'
-     If you write braces around the variable name, then it is completely
-     unambiguous where the variable name ends.  You can concatenate
-     additional letters onto the end of the variable value by writing
-     them immediately after the close brace.  For example, '${foo}s'
-     expands into 'tractors'.
-
-'$VARIABLE'
-     If you do not put braces around the variable name, then the
-     variable name consists of all the alphanumeric characters and
-     underscores that follow the '$'.  The next punctuation character
-     ends the variable name.  Thus, '$foo-bar' refers to the variable
-     'foo' and expands into 'tractor-bar'.
-
-   When you use braces, you can also use various constructs to modify
-the value that is substituted, or test it in various ways.
-
-'${VARIABLE:-DEFAULT}'
-     Substitute the value of VARIABLE, but if that is empty or
-     undefined, use DEFAULT instead.
-
-'${VARIABLE:=DEFAULT}'
-     Substitute the value of VARIABLE, but if that is empty or
-     undefined, use DEFAULT instead and set the variable to DEFAULT.
-
-'${VARIABLE:?MESSAGE}'
-     If VARIABLE is defined and not empty, substitute its value.
-
-     Otherwise, print MESSAGE as an error message on the standard error
-     stream, and consider word expansion a failure.
-
-'${VARIABLE:+REPLACEMENT}'
-     Substitute REPLACEMENT, but only if VARIABLE is defined and
-     nonempty.  Otherwise, substitute nothing for this construct.
-
-'${#VARIABLE}'
-     Substitute a numeral which expresses in base ten the number of
-     characters in the value of VARIABLE.  '${#foo}' stands for '7',
-     because 'tractor' is seven characters.
-
-   These variants of variable substitution let you remove part of the
-variable's value before substituting it.  The PREFIX and SUFFIX are not
-mere strings; they are wildcard patterns, just like the patterns that
-you use to match multiple file names.  But in this context, they match
-against parts of the variable value rather than against file names.
-
-'${VARIABLE%%SUFFIX}'
-     Substitute the value of VARIABLE, but first discard from that
-     variable any portion at the end that matches the pattern SUFFIX.
-
-     If there is more than one alternative for how to match against
-     SUFFIX, this construct uses the longest possible match.
-
-     Thus, '${foo%%r*}' substitutes 't', because the largest match for
-     'r*' at the end of 'tractor' is 'ractor'.
-
-'${VARIABLE%SUFFIX}'
-     Substitute the value of VARIABLE, but first discard from that
-     variable any portion at the end that matches the pattern SUFFIX.
-
-     If there is more than one alternative for how to match against
-     SUFFIX, this construct uses the shortest possible alternative.
-
-     Thus, '${foo%r*}' substitutes 'tracto', because the shortest match
-     for 'r*' at the end of 'tractor' is just 'r'.
-
-'${VARIABLE##PREFIX}'
-     Substitute the value of VARIABLE, but first discard from that
-     variable any portion at the beginning that matches the pattern
-     PREFIX.
-
-     If there is more than one alternative for how to match against
-     PREFIX, this construct uses the longest possible match.
-
-     Thus, '${foo##*t}' substitutes 'or', because the largest match for
-     '*t' at the beginning of 'tractor' is 'tract'.
-
-'${VARIABLE#PREFIX}'
-     Substitute the value of VARIABLE, but first discard from that
-     variable any portion at the beginning that matches the pattern
-     PREFIX.
-
-     If there is more than one alternative for how to match against
-     PREFIX, this construct uses the shortest possible alternative.
-
-     Thus, '${foo#*t}' substitutes 'ractor', because the shortest match
-     for '*t' at the beginning of 'tractor' is just 't'.
-
-
-File: libc.info,  Node: I/O Overview,  Next: I/O on Streams,  Prev: Pattern Matching,  Up: Top
-
-11 Input/Output Overview
-************************
-
-Most programs need to do either input (reading data) or output (writing
-data), or most frequently both, in order to do anything useful.  The GNU
-C Library provides such a large selection of input and output functions
-that the hardest part is often deciding which function is most
-appropriate!
-
-   This chapter introduces concepts and terminology relating to input
-and output.  Other chapters relating to the GNU I/O facilities are:
-
-   * *note I/O on Streams::, which covers the high-level functions that
-     operate on streams, including formatted input and output.
-
-   * *note Low-Level I/O::, which covers the basic I/O and control
-     functions on file descriptors.
-
-   * *note File System Interface::, which covers functions for operating
-     on directories and for manipulating file attributes such as access
-     modes and ownership.
-
-   * *note Pipes and FIFOs::, which includes information on the basic
-     interprocess communication facilities.
-
-   * *note Sockets::, which covers a more complicated interprocess
-     communication facility with support for networking.
-
-   * *note Low-Level Terminal Interface::, which covers functions for
-     changing how input and output to terminals or other serial devices
-     are processed.
-
-* Menu:
-
-* I/O Concepts::       Some basic information and terminology.
-* File Names::         How to refer to a file.
-
-
-File: libc.info,  Node: I/O Concepts,  Next: File Names,  Up: I/O Overview
-
-11.1 Input/Output Concepts
-==========================
-
-Before you can read or write the contents of a file, you must establish
-a connection or communications channel to the file.  This process is
-called "opening" the file.  You can open a file for reading, writing, or
-both.
-
-   The connection to an open file is represented either as a stream or
-as a file descriptor.  You pass this as an argument to the functions
-that do the actual read or write operations, to tell them which file to
-operate on.  Certain functions expect streams, and others are designed
-to operate on file descriptors.
-
-   When you have finished reading to or writing from the file, you can
-terminate the connection by "closing" the file.  Once you have closed a
-stream or file descriptor, you cannot do any more input or output
-operations on it.
-
-* Menu:
-
-* Streams and File Descriptors::    The GNU C Library provides two ways
-			             to access the contents of files.
-* File Position::                   The number of bytes from the
-                                     beginning of the file.
-
-
-File: libc.info,  Node: Streams and File Descriptors,  Next: File Position,  Up: I/O Concepts
-
-11.1.1 Streams and File Descriptors
------------------------------------
-
-When you want to do input or output to a file, you have a choice of two
-basic mechanisms for representing the connection between your program
-and the file: file descriptors and streams.  File descriptors are
-represented as objects of type 'int', while streams are represented as
-'FILE *' objects.
-
-   File descriptors provide a primitive, low-level interface to input
-and output operations.  Both file descriptors and streams can represent
-a connection to a device (such as a terminal), or a pipe or socket for
-communicating with another process, as well as a normal file.  But, if
-you want to do control operations that are specific to a particular kind
-of device, you must use a file descriptor; there are no facilities to
-use streams in this way.  You must also use file descriptors if your
-program needs to do input or output in special modes, such as
-nonblocking (or polled) input (*note File Status Flags::).
-
-   Streams provide a higher-level interface, layered on top of the
-primitive file descriptor facilities.  The stream interface treats all
-kinds of files pretty much alike--the sole exception being the three
-styles of buffering that you can choose (*note Stream Buffering::).
-
-   The main advantage of using the stream interface is that the set of
-functions for performing actual input and output operations (as opposed
-to control operations) on streams is much richer and more powerful than
-the corresponding facilities for file descriptors.  The file descriptor
-interface provides only simple functions for transferring blocks of
-characters, but the stream interface also provides powerful formatted
-input and output functions ('printf' and 'scanf') as well as functions
-for character- and line-oriented input and output.
-
-   Since streams are implemented in terms of file descriptors, you can
-extract the file descriptor from a stream and perform low-level
-operations directly on the file descriptor.  You can also initially open
-a connection as a file descriptor and then make a stream associated with
-that file descriptor.
-
-   In general, you should stick with using streams rather than file
-descriptors, unless there is some specific operation you want to do that
-can only be done on a file descriptor.  If you are a beginning
-programmer and aren't sure what functions to use, we suggest that you
-concentrate on the formatted input functions (*note Formatted Input::)
-and formatted output functions (*note Formatted Output::).
-
-   If you are concerned about portability of your programs to systems
-other than GNU, you should also be aware that file descriptors are not
-as portable as streams.  You can expect any system running ISO C to
-support streams, but non-GNU systems may not support file descriptors at
-all, or may only implement a subset of the GNU functions that operate on
-file descriptors.  Most of the file descriptor functions in the GNU C
-Library are included in the POSIX.1 standard, however.
-
-
-File: libc.info,  Node: File Position,  Prev: Streams and File Descriptors,  Up: I/O Concepts
-
-11.1.2 File Position
---------------------
-
-One of the attributes of an open file is its "file position" that keeps
-track of where in the file the next character is to be read or written.
-On GNU systems, and all POSIX.1 systems, the file position is simply an
-integer representing the number of bytes from the beginning of the file.
-
-   The file position is normally set to the beginning of the file when
-it is opened, and each time a character is read or written, the file
-position is incremented.  In other words, access to the file is normally
-"sequential".
-
-   Ordinary files permit read or write operations at any position within
-the file.  Some other kinds of files may also permit this.  Files which
-do permit this are sometimes referred to as "random-access" files.  You
-can change the file position using the 'fseek' function on a stream
-(*note File Positioning::) or the 'lseek' function on a file descriptor
-(*note I/O Primitives::).  If you try to change the file position on a
-file that doesn't support random access, you get the 'ESPIPE' error.
-
-   Streams and descriptors that are opened for "append access" are
-treated specially for output: output to such files is _always_ appended
-sequentially to the _end_ of the file, regardless of the file position.
-However, the file position is still used to control where in the file
-reading is done.
-
-   If you think about it, you'll realize that several programs can read
-a given file at the same time.  In order for each program to be able to
-read the file at its own pace, each program must have its own file
-pointer, which is not affected by anything the other programs do.
-
-   In fact, each opening of a file creates a separate file position.
-Thus, if you open a file twice even in the same program, you get two
-streams or descriptors with independent file positions.
-
-   By contrast, if you open a descriptor and then duplicate it to get
-another descriptor, these two descriptors share the same file position:
-changing the file position of one descriptor will affect the other.
-
-
-File: libc.info,  Node: File Names,  Prev: I/O Concepts,  Up: I/O Overview
-
-11.2 File Names
-===============
-
-In order to open a connection to a file, or to perform other operations
-such as deleting a file, you need some way to refer to the file.  Nearly
-all files have names that are strings--even files which are actually
-devices such as tape drives or terminals.  These strings are called
-"file names".  You specify the file name to say which file you want to
-open or operate on.
-
-   This section describes the conventions for file names and how the
-operating system works with them.
-
-* Menu:
-
-* Directories::                 Directories contain entries for files.
-* File Name Resolution::        A file name specifies how to look up a file.
-* File Name Errors::            Error conditions relating to file names.
-* File Name Portability::       File name portability and syntax issues.
-
-
-File: libc.info,  Node: Directories,  Next: File Name Resolution,  Up: File Names
-
-11.2.1 Directories
-------------------
-
-In order to understand the syntax of file names, you need to understand
-how the file system is organized into a hierarchy of directories.
-
-   A "directory" is a file that contains information to associate other
-files with names; these associations are called "links" or "directory
-entries".  Sometimes, people speak of "files in a directory", but in
-reality, a directory only contains pointers to files, not the files
-themselves.
-
-   The name of a file contained in a directory entry is called a "file
-name component".  In general, a file name consists of a sequence of one
-or more such components, separated by the slash character ('/').  A file
-name which is just one component names a file with respect to its
-directory.  A file name with multiple components names a directory, and
-then a file in that directory, and so on.
-
-   Some other documents, such as the POSIX standard, use the term
-"pathname" for what we call a file name, and either "filename" or
-"pathname component" for what this manual calls a file name component.
-We don't use this terminology because a "path" is something completely
-different (a list of directories to search), and we think that
-"pathname" used for something else will confuse users.  We always use
-"file name" and "file name component" (or sometimes just "component",
-where the context is obvious) in GNU documentation.  Some macros use the
-POSIX terminology in their names, such as 'PATH_MAX'.  These macros are
-defined by the POSIX standard, so we cannot change their names.
-
-   You can find more detailed information about operations on
-directories in *note File System Interface::.
-
-
-File: libc.info,  Node: File Name Resolution,  Next: File Name Errors,  Prev: Directories,  Up: File Names
-
-11.2.2 File Name Resolution
----------------------------
-
-A file name consists of file name components separated by slash ('/')
-characters.  On the systems that the GNU C Library supports, multiple
-successive '/' characters are equivalent to a single '/' character.
-
-   The process of determining what file a file name refers to is called
-"file name resolution".  This is performed by examining the components
-that make up a file name in left-to-right order, and locating each
-successive component in the directory named by the previous component.
-Of course, each of the files that are referenced as directories must
-actually exist, be directories instead of regular files, and have the
-appropriate permissions to be accessible by the process; otherwise the
-file name resolution fails.
-
-   If a file name begins with a '/', the first component in the file
-name is located in the "root directory" of the process (usually all
-processes on the system have the same root directory).  Such a file name
-is called an "absolute file name".
-
-   Otherwise, the first component in the file name is located in the
-current working directory (*note Working Directory::).  This kind of
-file name is called a "relative file name".
-
-   The file name components '.' ("dot") and '..' ("dot-dot") have
-special meanings.  Every directory has entries for these file name
-components.  The file name component '.' refers to the directory itself,
-while the file name component '..' refers to its "parent directory" (the
-directory that contains the link for the directory in question).  As a
-special case, '..' in the root directory refers to the root directory
-itself, since it has no parent; thus '/..' is the same as '/'.
-
-   Here are some examples of file names:
-
-'/a'
-     The file named 'a', in the root directory.
-
-'/a/b'
-     The file named 'b', in the directory named 'a' in the root
-     directory.
-
-'a'
-     The file named 'a', in the current working directory.
-
-'/a/./b'
-     This is the same as '/a/b'.
-
-'./a'
-     The file named 'a', in the current working directory.
-
-'../a'
-     The file named 'a', in the parent directory of the current working
-     directory.
-
-   A file name that names a directory may optionally end in a '/'.  You
-can specify a file name of '/' to refer to the root directory, but the
-empty string is not a meaningful file name.  If you want to refer to the
-current working directory, use a file name of '.' or './'.
-
-   Unlike some other operating systems, GNU systems don't have any
-built-in support for file types (or extensions) or file versions as part
-of its file name syntax.  Many programs and utilities use conventions
-for file names--for example, files containing C source code usually have
-names suffixed with '.c'--but there is nothing in the file system itself
-that enforces this kind of convention.
 
