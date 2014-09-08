@@ -1,9 +1,9 @@
-This is libc.info, produced by makeinfo version 5.1 from libc.texinfo.
+This is libc.info, produced by makeinfo version 5.2 from libc.texinfo.
 
 This file documents the GNU C Library.
 
    This is 'The GNU C Library Reference Manual', for version
-2.19-2014.04 (crosstool-NG linaro-1.13.1+bzr2650 - Linaro GCC 2014.04).
+2.19-2014.08 (crosstool-NG linaro-1.13.1+bzr2691 - Linaro GCC 2014.08).
 
    Copyright (C) 1993-2014 Free Software Foundation, Inc.
 
@@ -5610,9 +5610,9 @@ Function and Macro Index
 * ulimit:                                Limits on Resources. (line 188)
 * umask:                                 Setting Permissions. (line  42)
 * umount:                                Mount-Unmount-Remount.
-                                                              (line 247)
+                                                              (line 249)
 * umount2:                               Mount-Unmount-Remount.
-                                                              (line 192)
+                                                              (line 193)
 * uname:                                 Platform Type.       (line  68)
 * unavail:                               Actions in the NSS configuration.
                                                               (line  28)
@@ -5666,7 +5666,7 @@ Function and Macro Index
                                                               (line  96)
 * vswscanf:                              Variable Arguments Input.
                                                               (line  57)
-* vsyslog:                               syslog; vsyslog.     (line 124)
+* vsyslog:                               syslog; vsyslog.     (line 125)
 * vtimes:                                Resource Usage.      (line 107)
 * vwarn:                                 Error Messages.      (line 295)
 * vwarnx:                                Error Messages.      (line 313)

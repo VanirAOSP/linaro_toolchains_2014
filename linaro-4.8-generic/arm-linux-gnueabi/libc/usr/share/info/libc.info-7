@@ -1,9 +1,9 @@
-This is libc.info, produced by makeinfo version 5.1 from libc.texinfo.
+This is libc.info, produced by makeinfo version 5.2 from libc.texinfo.
 
 This file documents the GNU C Library.
 
    This is 'The GNU C Library Reference Manual', for version
-2.19-2014.04 (crosstool-NG linaro-1.13.1+bzr2650 - Linaro GCC 2014.04).
+2.19-2014.08 (crosstool-NG linaro-1.13.1+bzr2691 - Linaro GCC 2014.08).
 
    Copyright (C) 1993-2014 Free Software Foundation, Inc.
 
@@ -3802,6 +3802,7 @@ The symbols referred to in this section are declared in the file
           syslog (LOG_MAKEPRI(LOG_LOCAL1, LOG_ERROR),
                   "Unable to make network connection to %s.  Error=%m", host);
 
+
  -- Function: void vsyslog (int FACILITY_PRIORITY, const char *FORMAT,
           va_list ARGLIST)
      Preliminary: | MT-Safe env locale | AS-Unsafe corrupt heap lock
@@ -3914,6 +3915,7 @@ messages get discarded without ever reaching Syslog.  So the second
      syslog (LOG_INFO, "A tree falls in a forest");
 
      closelog ();
+
 
 
 File: libc.info,  Node: Mathematics,  Next: Arithmetic,  Prev: Syslog,  Up: Top

@@ -19,7 +19,7 @@ import gdb
 import os
 import os.path
 
-pythondir = '/media/hdd_linux/linaro/builds/arm-linux-gnueabi/share/gcc-4.8.3/python'
+pythondir = '/media/hdd_linux/linaro/builds/arm-linux-gnueabi/share/gcc-4.8.4/python'
 libdir = '/media/hdd_linux/linaro/builds/arm-linux-gnueabi/arm-linux-gnueabi/lib/arm-linux-gnueabi'
 
 # This file might be loaded when there is no current objfile.  This

@@ -1,9 +1,9 @@
-This is libc.info, produced by makeinfo version 5.1 from libc.texinfo.
+This is libc.info, produced by makeinfo version 5.2 from libc.texinfo.
 
 This file documents the GNU C Library.
 
    This is 'The GNU C Library Reference Manual', for version
-2.19-2014.04 (crosstool-NG linaro-1.13.1+bzr2650 - Linaro GCC 2014.04 -
+2.19-2014.08 (crosstool-NG linaro-1.13.1+bzr2691 - Linaro GCC 2014.08 -
 Cortex-A8).
 
    Copyright (C) 1993-2014 Free Software Foundation, Inc.
@@ -2745,6 +2745,7 @@ should maintain and use these separately.  *Note Mount Information::.
 
           mount("/dev/hda2", "/mnt", MS_MGC_VAL | MS_REMOUNT, "");
 
+
      Appropriate arguments for 'mount' are conventionally recorded in
      the 'fstab' table.  *Note Mount Information::.
 
@@ -2823,6 +2824,7 @@ should maintain and use these separately.  *Note Mount Information::.
           umount2("/mnt", MNT_FORCE);
 
           umount2("/dev/hdd1", 0);
+
 
      After the filesystem is unmounted, the directory that was the mount
      point is visible, as are any files in it.

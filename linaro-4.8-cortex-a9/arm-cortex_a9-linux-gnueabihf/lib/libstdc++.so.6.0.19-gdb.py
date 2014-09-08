@@ -19,7 +19,7 @@ import gdb
 import os
 import os.path
 
-pythondir = '/media/hdd_linux/linaro/builds/arm-cortex_a9-linux-gnueabihf/share/gcc-4.8.3/python'
+pythondir = '/media/hdd_linux/linaro/builds/arm-cortex_a9-linux-gnueabihf/share/gcc-4.8.4/python'
 libdir = '/media/hdd_linux/linaro/builds/arm-cortex_a9-linux-gnueabihf/arm-cortex_a9-linux-gnueabihf/lib'
 
 # This file might be loaded when there is no current objfile.  This
